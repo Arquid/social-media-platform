@@ -30,7 +30,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/social-media-platform.git
+git clone https://github.com/arquid/social-media-platform.git
 cd social-media-platform
 npm install
 ```
