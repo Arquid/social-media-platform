@@ -23,7 +23,8 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - [React](https://react.dev) 19 + [Vite](https://vite.dev)
 - [Material UI](https://mui.com) (`@mui/material`, `@mui/icons-material`)
 - [React Router](https://reactrouter.com)
-- [Supabase](https://supabase.com) (Auth, PostgreSQL, Row Level Security, Realtime)
+- [Supabase](https://supabase.com) (Auth, PostgreSQL, Row Level Security, Realtime), with the Supabase CLI and Docker for local development
+- [Vitest](https://vitest.dev) + [React Testing Library](https://testing-library.com/react) for unit tests, [Playwright](https://playwright.dev) for end-to-end tests
 
 ## Getting Started
 
@@ -82,7 +83,7 @@ npm install
 npm run db:start      # first start downloads several Docker images
 ```
 
-The migration in `supabase/migrations/` is applied automatically. Then:
+All migrations in `supabase/migrations/` are applied automatically on a fresh start. If you add a new migration while Supabase is running, apply it with `npx supabase migration up`. Then:
 
 1. Run `npm run db:status` and copy the `ANON_KEY` (or the publishable key).
 2. Copy `.env.localdb.example` to `.env.localdb` and paste the key into `VITE_SUPABASE_ANON_KEY`.
@@ -125,7 +126,7 @@ npm run db:reset      # wipe the local database and re-apply migrations
 src/
 ├── main.jsx                 # App entry, theme and providers
 ├── App.jsx                  # Routes
-├── lib/supabaseClient.js    # Supabase client and shared query
+├── lib/supabaseClient.js    # Supabase client
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
 ├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute
@@ -185,9 +186,11 @@ The app can be deployed to Vercel or Netlify:
 
 ## Ideas for Future Development
 
+- Validate usernames in the database as well (check constraint)
+- GitHub Actions workflow that runs lint, unit tests and build on every push
 - Profile editing (bio, display name) and avatars
 - Image uploads with Supabase Storage
+- Post links from notifications and a 404 page
 - User search
-- Pagination or infinite scroll
+- Infinite scroll instead of the "Load more" button
 - Dark mode
-- Tests with Vitest and React Testing Library
