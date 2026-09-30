@@ -7,7 +7,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - User authentication (sign up, log in, log out) with protected routes
 - User profiles with follower and following counts
 - Create and delete posts
-- Like posts and comment on them
+- Like posts and comment on them (like and comment counts are computed in the database through the `posts_feed` view)
 - Follow / unfollow users, with a "Following" feed
 - Notifications for likes, comments and new followers
 - Real-time updates for feeds, comments and the notification badge
@@ -41,7 +41,7 @@ npm install
 ### 2. Set up Supabase
 
 1. Create a new project in the Supabase dashboard.
-2. Open **SQL Editor -> New query**, paste the contents of [`supabase/migrations/20260930000000_init_schema.sql`](supabase/migrations/20260930000000_init_schema.sql) and run it.
+2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (the initial schema first, then the `posts_feed` view).
    This creates the tables, notification triggers, Row Level Security policies and the realtime setup.
 3. For local development, go to **Authentication -> Providers -> Email** and turn **Confirm email** off.
 4. Go to **Project Settings -> API** and copy the **Project URL** and the **anon public** key.

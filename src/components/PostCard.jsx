@@ -15,9 +15,9 @@ export default function PostCard({ post, onChange }) {
   const { showToast } = useToast();
   const [showComments, setShowComments] = useState(false);
 
-  const liked = post.likes.some((l) => l.user_id === user.id);
-  const likeCount = post.likes.length;
-  const commentCount = post.comments?.[0]?.count ?? 0;
+  const liked = post.liked_by_me;
+  const likeCount = post.like_count;
+  const commentCount = post.comment_count;
   const isOwner = post.user_id === user.id;
 
   async function toggleLike() {
@@ -46,8 +46,8 @@ export default function PostCard({ post, onChange }) {
     <Card sx={{ mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Link component={RouterLink} to={`/profile/${post.profiles.username}`} underline="hover" fontWeight={700}>
-            @{post.profiles.username}
+          <Link component={RouterLink} to={`/profile/${post.username}`} underline="hover" fontWeight={700}>
+            @{post.username}
           </Link>
           <Typography variant="caption" color="text.secondary">
             {new Date(post.created_at).toLocaleString()}

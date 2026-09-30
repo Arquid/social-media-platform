@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { CircularProgress, Typography, Box, Alert } from '@mui/material';
-import { supabase, POST_SELECT } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import PostCard from './PostCard';
 
 async function fetchPosts({ authorId, followingOnly, userId }) {
   let query = supabase
-    .from('posts')
-    .select(POST_SELECT)
+    .from('posts_feed')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(50);
 
