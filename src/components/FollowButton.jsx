@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 
 async function fetchIsFollowing(followerId, targetId) {
   const { data } = await supabase
@@ -14,6 +15,7 @@ async function fetchIsFollowing(followerId, targetId) {
 
 export default function FollowButton({ targetId, onChange }) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [following, setFollowing] = useState(false);
 
   useEffect(() => {
@@ -27,11 +29,15 @@ export default function FollowButton({ targetId, onChange }) {
   }, [user.id, targetId]);
 
   async function toggle() {
-    if (following) {
-      await supabase.from('follows').delete().match({ follower_id: user.id, following_id: targetId });
-    } else {
-      await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId });
+    const { error } = following
+      ? await supabase.from('follows').delete().match({ follower_id: user.id, following_id: targetId })
+      : await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId });
+
+    if (error) {
+      showToast(`Could not ${following ? 'unfollow' : 'follow'} user: ${error.message}`);
+      return;
     }
+
     setFollowing(!following);
     onChange?.();
   }

@@ -7,10 +7,12 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
 
 export default function PostCard({ post, onChange }) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [showComments, setShowComments] = useState(false);
 
   const liked = post.likes.some((l) => l.user_id === user.id);
@@ -19,16 +21,24 @@ export default function PostCard({ post, onChange }) {
   const isOwner = post.user_id === user.id;
 
   async function toggleLike() {
-    if (liked) {
-      await supabase.from('likes').delete().match({ post_id: post.id, user_id: user.id });
-    } else {
-      await supabase.from('likes').insert({ post_id: post.id, user_id: user.id });
+    const { error } = liked
+      ? await supabase.from('likes').delete().match({ post_id: post.id, user_id: user.id })
+      : await supabase.from('likes').insert({ post_id: post.id, user_id: user.id });
+
+    if (error) {
+      showToast(`Could not update like: ${error.message}`);
+      return;
     }
     onChange?.();
   }
 
   async function handleDelete() {
-    await supabase.from('posts').delete().eq('id', post.id);
+    const { error } = await supabase.from('posts').delete().eq('id', post.id);
+
+    if (error) {
+      showToast(`Could not delete post: ${error.message}`);
+      return;
+    }
     onChange?.();
   }
 
@@ -47,18 +57,27 @@ export default function PostCard({ post, onChange }) {
       </CardContent>
 
       <CardActions>
-        <IconButton onClick={toggleLike} color={liked ? 'error' : 'default'}>
+        <IconButton
+          onClick={toggleLike}
+          color={liked ? 'error' : 'default'}
+          aria-label={liked ? 'Unlike post' : 'Like post'}
+          aria-pressed={liked}
+        >
           {liked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
         </IconButton>
         <Typography variant="body2">{likeCount}</Typography>
 
-        <IconButton onClick={() => setShowComments((v) => !v)}>
+        <IconButton
+          onClick={() => setShowComments((v) => !v)}
+          aria-label={showComments ? 'Hide comments' : 'Show comments'}
+          aria-expanded={showComments}
+        >
           <ChatBubbleOutlineIcon />
         </IconButton>
         <Typography variant="body2">{commentCount}</Typography>
 
         {isOwner && (
-          <IconButton onClick={handleDelete} sx={{ ml: 'auto' }}>
+          <IconButton onClick={handleDelete} sx={{ ml: 'auto' }} aria-label="Delete post">
             <DeleteOutlineIcon />
           </IconButton>
         )}

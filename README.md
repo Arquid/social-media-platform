@@ -11,6 +11,9 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Follow / unfollow users, with a "Following" feed
 - Notifications for likes, comments and new followers
 - Real-time updates for feeds, comments and the notification badge
+- Username validation on sign up (3-20 characters: letters, numbers, underscores)
+- Error toasts when likes, comments, follows or deletes fail
+- Accessible icon buttons (ARIA labels)
 - Responsive UI built with Material UI
 
 ## Tech Stack
@@ -82,8 +85,8 @@ src/
 ├── main.jsx                 # App entry, theme and providers
 ├── App.jsx                  # Routes
 ├── lib/supabaseClient.js    # Supabase client and shared query
-├── context/                 # Auth provider and context object
-├── hooks/useAuth.js         # Hook for reading auth state
+├── context/                 # Auth and toast providers with their context objects
+├── hooks/                   # useAuth and useToast hooks
 ├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute
 └── pages/                   # Login, Register, Home, Profile, Notifications
 supabase/

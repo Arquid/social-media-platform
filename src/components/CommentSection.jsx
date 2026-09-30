@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Link, Stack } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 
 async function fetchComments(postId) {
   const { data } = await supabase
@@ -15,6 +16,7 @@ async function fetchComments(postId) {
 
 export default function CommentSection({ postId }) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [comments, setComments] = useState([]);
   const [text, setText] = useState('');
 
@@ -52,10 +54,13 @@ export default function CommentSection({ postId }) {
       .from('comments')
       .insert({ post_id: postId, user_id: user.id, content: text.trim() });
 
-    if (!error) {
-      setText('');
-      load();
+    if (error) {
+      showToast(`Could not add comment: ${error.message}`);
+      return;
     }
+
+    setText('');
+    load();
   }
 
   return (
@@ -75,6 +80,7 @@ export default function CommentSection({ postId }) {
           size="small"
           fullWidth
           placeholder="Write a comment..."
+          aria-label="Write a comment"
           value={text}
           onChange={(e) => setText(e.target.value)}
           slotProps={{ htmlInput: { maxLength: 300 } }}

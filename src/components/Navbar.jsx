@@ -79,7 +79,11 @@ export default function Navbar() {
             {username && (
               <Button component={RouterLink} to={`/profile/${username}`}>Profile</Button>
             )}
-            <IconButton component={RouterLink} to="/notifications">
+            <IconButton
+              component={RouterLink}
+              to="/notifications"
+              aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
+            >
               <Badge badgeContent={unread} color="error">
                 <NotificationsIcon />
               </Badge>
