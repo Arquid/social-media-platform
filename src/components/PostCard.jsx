@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
 
-export default function PostCard({ post, onChange }) {
+export default function PostCard({ post, onChange, onDelete }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [showComments, setShowComments] = useState(false);
@@ -29,7 +29,7 @@ export default function PostCard({ post, onChange }) {
       showToast(`Could not update like: ${error.message}`);
       return;
     }
-    onChange?.();
+    onChange?.(post.id);
   }
 
   async function handleDelete() {
@@ -39,7 +39,7 @@ export default function PostCard({ post, onChange }) {
       showToast(`Could not delete post: ${error.message}`);
       return;
     }
-    onChange?.();
+    onDelete?.(post.id);
   }
 
   return (

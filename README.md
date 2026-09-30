@@ -10,7 +10,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Like posts and comment on them (like and comment counts are computed in the database through the `posts_feed` view)
 - Follow / unfollow users, with a "Following" feed
 - Notifications for likes, comments and new followers
-- Real-time updates for feeds, comments and the notification badge
+- Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: letters, numbers, underscores)
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
