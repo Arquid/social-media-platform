@@ -14,7 +14,7 @@ function getUsernameError(username) {
 
 function friendlySignUpError(message) {
   if (/database error saving new user/i.test(message)) {
-    return 'That username is already taken. Please choose another one.';
+    return 'That username is already taken or not allowed. Use 3-20 lowercase letters, numbers or underscores.';
   }
   return message;
 }

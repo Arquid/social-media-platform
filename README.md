@@ -12,10 +12,10 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Notifications for likes, comments and new followers
 - Cursor-based pagination: feeds load 20 posts at a time with a "Load more" button
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
-- Username validation on sign up (3-20 characters: letters, numbers, underscores)
+- Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 28 unit/component tests (Vitest) and 7 end-to-end tests (Playwright)
+- Automated tests: 28 unit/component tests (Vitest) and 19 end-to-end tests (Playwright)
 - Responsive UI built with Material UI
 
 ## Tech Stack
@@ -44,10 +44,12 @@ npm install
 ### 2. Set up Supabase
 
 1. Create a new project in the Supabase dashboard.
-2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index).
+2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index, username format constraint).
    This creates the tables, notification triggers, Row Level Security policies and the realtime setup.
 3. For local development, go to **Authentication -> Providers -> Email** and turn **Confirm email** off.
 4. Go to **Project Settings -> API** and copy the **Project URL** and the **anon public** key.
+
+Note: the username constraint is added as `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles with usernames that break the rule (3-20 characters of `a-z`, `0-9`, `_`), fix them and then run `alter table profiles validate constraint profiles_username_format;`.
 
 ### 3. Configure environment variables
 
@@ -150,7 +152,7 @@ These run without any backend: the Supabase client is mocked. They cover route p
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications).
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames.
 
 ```bash
 npm run db:start      # wait a few seconds until Supabase is ready
@@ -186,7 +188,6 @@ The app can be deployed to Vercel or Netlify:
 
 ## Ideas for Future Development
 
-- Validate usernames in the database as well (check constraint)
 - GitHub Actions workflow that runs lint, unit tests and build on every push
 - Profile editing (bio, display name) and avatars
 - Image uploads with Supabase Storage

@@ -1,17 +1,6 @@
-import fs from 'node:fs';
+import { readEnvFile } from './env';
 
 const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '[::1]'];
-
-function readEnvFile(file) {
-  if (!fs.existsSync(file)) return null;
-  return Object.fromEntries(
-    fs
-      .readFileSync(file, 'utf8')
-      .split(/\r?\n/)
-      .filter((line) => line.includes('=') && !line.startsWith('#'))
-      .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1).trim()])
-  );
-}
 
 // Runs once before all e2e tests. The tests create real accounts, so they must
 // only ever talk to the local Supabase (Docker), never to a cloud project.
