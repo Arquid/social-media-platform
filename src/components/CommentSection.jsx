@@ -80,10 +80,9 @@ export default function CommentSection({ postId }) {
           size="small"
           fullWidth
           placeholder="Write a comment..."
-          aria-label="Write a comment"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          slotProps={{ htmlInput: { maxLength: 300 } }}
+          slotProps={{ htmlInput: { maxLength: 300, 'aria-label': 'Write a comment' } }}
         />
         <Button type="submit" disabled={!text.trim()}>Send</Button>
       </form>

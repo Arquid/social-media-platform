@@ -15,6 +15,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Username validation on sign up (3-20 characters: letters, numbers, underscores)
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
+- Automated tests: 28 unit/component tests (Vitest) and 7 end-to-end tests (Playwright)
 - Responsive UI built with Material UI
 
 ## Tech Stack
@@ -111,6 +112,9 @@ npm run db:reset      # wipe the local database and re-apply migrations
 | `npm run build` | Build for production |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run ESLint |
+| `npm test` | Run unit and component tests (Vitest) |
+| `npm run test:watch` | Run unit tests in watch mode |
+| `npm run test:e2e` | Run end-to-end tests (Playwright, needs local Supabase) |
 | `npm run db:start` / `db:stop` | Start / stop local Supabase (Docker) |
 | `npm run db:status` | Show local Supabase URLs and keys |
 | `npm run db:reset` | Reset the local database and re-apply migrations |
@@ -125,13 +129,39 @@ src/
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
 ├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute
-└── pages/                   # Login, Register, Home, Profile, Notifications
+├── pages/                   # Login, Register, Home, Profile, Notifications
+└── test/                    # Test setup, Supabase mocks and render helper (*.test.jsx files live next to the code)
+e2e/                         # Playwright end-to-end tests
 supabase/
 ├── config.toml              # Local Supabase (Docker) configuration
 └── migrations/              # Database schema, triggers, RLS policies
 ```
 
-## Testing Realtime Features
+## Testing
+
+### Unit and component tests (Vitest + React Testing Library)
+
+```bash
+npm test
+```
+
+These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, error toasts) and the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup).
+
+### End-to-end tests (Playwright)
+
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications).
+
+```bash
+npm run db:start      # wait a few seconds until Supabase is ready
+npm run test:e2e
+```
+
+- Requires `.env.localdb` (see "Local Development with Docker"). The tests refuse to run if it does not point to `localhost`.
+- The dev server for the tests starts automatically on port 5175.
+- The tests use the Edge that ships with Windows, so no browser download is needed. Use `E2E_BROWSER=chrome npm run test:e2e` to use Chrome instead.
+- Test reports are written to `playwright-report/` (git-ignored).
+
+### Manual check of real-time features
 
 1. Sign up two users (use a normal window and an incognito window).
 2. Post as user B. The post appears in user A's feed without a refresh.

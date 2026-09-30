@@ -26,3 +26,7 @@ dist-ssr
 .claude/
 # Local Supabase (Docker) settings
 .env.localdb
+
+# Test output
+test-results/
+playwright-report/
