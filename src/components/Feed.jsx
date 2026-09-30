@@ -1,27 +1,33 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { CircularProgress, Typography, Box, Alert } from '@mui/material';
+import { CircularProgress, Typography, Box, Alert, Button } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import PostCard from './PostCard';
 
-async function fetchPosts({ authorId, followingOnly, userId }) {
+const PAGE_SIZE = 20;
+
+async function fetchFollowingIds(userId) {
+  const { data } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId);
+  return (data ?? []).map((f) => f.following_id);
+}
+
+// Fetches one page of posts. beforeId is the cursor: only posts older than it are returned.
+async function fetchPosts({ authorId, followingIds, beforeId }) {
+  if (followingIds && followingIds.length === 0) return { data: [] };
+
   let query = supabase
     .from('posts_feed')
     .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .order('id', { ascending: false })
+    .limit(PAGE_SIZE);
 
   if (authorId) query = query.eq('user_id', authorId);
-
-  if (followingOnly) {
-    const { data: follows } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', userId);
-    const ids = (follows ?? []).map((f) => f.following_id);
-    if (ids.length === 0) return { data: [] };
-    query = query.in('user_id', ids);
-  }
+  if (followingIds) query = query.in('user_id', followingIds);
+  if (beforeId) query = query.lt('id', beforeId);
 
   const { data, error } = await query;
   if (error) {
@@ -53,8 +59,11 @@ async function isFollowing(followerId, targetId) {
 
 export default function Feed({ authorId, followingOnly = false }) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
 
   const userId = user.id;
@@ -64,6 +73,9 @@ export default function Feed({ authorId, followingOnly = false }) {
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  // Remembers who the user follows so "Load more" does not need to fetch it again
+  const followingIdsRef = useRef(null);
 
   const removePost = useCallback((postId) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -81,12 +93,46 @@ export default function Feed({ authorId, followingOnly = false }) {
     );
   }, []);
 
+  async function loadMore() {
+    const last = postsRef.current[postsRef.current.length - 1];
+    if (!last) return;
+
+    setLoadingMore(true);
+    const result = await fetchPosts({
+      authorId,
+      followingIds: followingIdsRef.current,
+      beforeId: last.id,
+    });
+    setLoadingMore(false);
+
+    if (result.error) {
+      showToast(`Could not load more posts: ${result.error.message}`);
+      return;
+    }
+
+    // Skip posts that are already in the list (e.g. added by realtime)
+    setPosts((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...result.data.filter((p) => !seen.has(p.id))];
+    });
+    setHasMore(result.data.length === PAGE_SIZE);
+  }
+
   useEffect(() => {
     let active = true;
 
-    fetchPosts({ authorId, followingOnly, userId }).then((result) => {
+    async function loadFirstPage() {
+      const followingIds = followingOnly ? await fetchFollowingIds(userId) : null;
+      followingIdsRef.current = followingIds;
+      return fetchPosts({ authorId, followingIds });
+    }
+
+    loadFirstPage().then((result) => {
       if (!active) return;
-      if (result.data) setPosts(result.data);
+      if (result.data) {
+        setPosts(result.data);
+        setHasMore(result.data.length === PAGE_SIZE);
+      }
       setError(result.error?.message ?? '');
       setLoading(false);
     });
@@ -144,7 +190,19 @@ export default function Feed({ authorId, followingOnly = false }) {
     return <Typography color="text.secondary" align="center">No posts yet.</Typography>;
   }
 
-  return posts.map((post) => (
-    <PostCard key={post.id} post={post} onChange={refreshPost} onDelete={removePost} />
-  ));
+  return (
+    <>
+      {posts.map((post) => (
+        <PostCard key={post.id} post={post} onChange={refreshPost} onDelete={removePost} />
+      ))}
+
+      {hasMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Button onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </Button>
+        </Box>
+      )}
+    </>
+  );
 }
