@@ -13,6 +13,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Follow / unfollow users, with a "Following" feed
 - Notifications for likes, comments and new followers
 - Cursor-based pagination: feeds load 20 posts at a time with a "Load more" button
+- Code splitting: pages are loaded on demand (`React.lazy`) and the big libraries (React, Material UI, Supabase) are built into separate, cacheable files (no file over 270 kB, app code about 6 kB)
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Error toasts when likes, comments, follows or deletes fail
@@ -131,7 +132,7 @@ npm run db:reset      # wipe the local database and re-apply migrations
 ```
 src/
 ├── main.jsx                 # App entry, theme and providers
-├── App.jsx                  # Routes
+├── App.jsx                  # Routes (pages are lazy-loaded)
 ├── lib/supabaseClient.js    # Supabase client
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
