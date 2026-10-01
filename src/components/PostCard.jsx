@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
+import UserAvatar from './UserAvatar';
 
 export default function PostCard({ post, onChange, onDelete }) {
   const { user } = useAuth();
@@ -45,11 +46,12 @@ export default function PostCard({ post, onChange, onDelete }) {
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <UserAvatar username={post.username} avatarPath={post.avatar_path} size={36} />
           <Link component={RouterLink} to={`/profile/${post.username}`} underline="hover" fontWeight={700}>
             @{post.username}
           </Link>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
             {new Date(post.created_at).toLocaleString()}
           </Typography>
         </Box>

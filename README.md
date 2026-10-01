@@ -8,6 +8,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 
 - User authentication (sign up, log in, log out) with protected routes
 - User profiles with follower and following counts
+- Profile editing: display name, bio (max 160 characters) and profile picture (JPEG, PNG or WebP, max 2 MB, stored in a public Supabase Storage bucket; users can only change files in their own folder). Pictures show on profiles and next to posts
 - Create and delete posts
 - Like posts and comment on them (like and comment counts are computed in the database through the `posts_feed` view)
 - Follow / unfollow users, with a "Following" feed
@@ -18,7 +19,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 28 unit/component tests (Vitest) and 19 end-to-end tests (Playwright)
+- Automated tests: 66 unit/component tests (Vitest) and 36 end-to-end tests (Playwright)
 - Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
@@ -49,7 +50,7 @@ npm install
 ### 2. Set up Supabase
 
 1. Create a new project in the Supabase dashboard.
-2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index, username format constraint).
+2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index, username format constraint, profile editing and avatars). The last one also creates the public `avatars` storage bucket and its policies.
    This creates the tables, notification triggers, Row Level Security policies and the realtime setup.
 3. For local development, go to **Authentication -> Providers -> Email** and turn **Confirm email** off.
 4. Go to **Project Settings -> API** and copy the **Project URL** and the **anon public** key.
@@ -134,9 +135,10 @@ src/
 ├── main.jsx                 # App entry, theme and providers
 ├── App.jsx                  # Routes (pages are lazy-loaded)
 ├── lib/supabaseClient.js    # Supabase client
+├── lib/avatars.js           # Avatar upload, delete, URL and file validation helpers
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
-├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute
+├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute, UserAvatar, EditProfileDialog
 ├── pages/                   # Login, Register, Home, Profile, Notifications
 └── test/                    # Test setup, Supabase mocks and render helper (*.test.jsx files live next to the code)
 e2e/                         # Playwright end-to-end tests
@@ -154,11 +156,11 @@ supabase/
 npm test
 ```
 
-These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, error toasts) and the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup).
+These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames.
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage.
 
 ```bash
 npm run db:start      # wait a few seconds until Supabase is ready
@@ -203,8 +205,8 @@ The app can be deployed to Vercel or Netlify:
 
 ## Ideas for Future Development
 
-- Profile editing (bio, display name) and avatars
-- Image uploads with Supabase Storage
+- Images in posts (Supabase Storage)
+- Avatars next to comments and in the notification list
 - Post links from notifications and a 404 page
 - User search
 - Infinite scroll instead of the "Load more" button

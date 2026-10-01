@@ -53,7 +53,7 @@ jobs:
       # Starts Postgres, Auth, REST and Realtime in Docker and applies supabase/migrations.
       # Services the app does not use are excluded to make the start faster.
       - name: Start local Supabase
-        run: npx supabase start -x studio,mailpit,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta,storage-api
+        run: npx supabase start -x studio,mailpit,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta
 
       - name: Create .env.localdb from the running Supabase
         run: |

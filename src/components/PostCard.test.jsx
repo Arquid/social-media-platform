@@ -7,7 +7,14 @@ import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery } from '../test/supabaseMock';
 
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
+  supabase: {
+    from: vi.fn(),
+    channel: vi.fn(),
+    removeChannel: vi.fn(),
+    storage: {
+      from: () => ({ getPublicUrl: (p) => ({ data: { publicUrl: `http://storage.test/${p}` } }) }),
+    },
+  },
 }));
 
 const basePost = {
@@ -34,6 +41,22 @@ describe('PostCard', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('shows the author\'s first letter when they have no avatar', () => {
+    renderWithProviders(<PostCard post={basePost} />);
+
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: "author's avatar" })).not.toBeInTheDocument();
+  });
+
+  it('shows the author\'s avatar picture when they have one', () => {
+    renderWithProviders(<PostCard post={{ ...basePost, avatar_path: 'author-1/me.png' }} />);
+
+    expect(screen.getByRole('img', { name: "author's avatar" })).toHaveAttribute(
+      'src',
+      'http://storage.test/author-1/me.png'
+    );
   });
 
   it('labels the like button according to liked_by_me', () => {
