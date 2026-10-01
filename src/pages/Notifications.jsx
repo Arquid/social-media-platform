@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Paper, List, ListItem, ListItemText, Typography, Link } from '@mui/material';
+import { Paper, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 
@@ -9,6 +9,12 @@ const MESSAGES = {
   comment: 'commented on your post',
   follow: 'started following you',
 };
+
+function destinationOf(notification) {
+  return notification.post_id
+    ? `/post/${notification.post_id}`
+    : `/profile/${notification.actor.username}`;
+}
 
 async function fetchNotifications(userId) {
   const { data } = await supabase
@@ -66,18 +72,22 @@ export default function Notifications() {
     <Paper>
       <List>
         {items.map((n) => (
-          <ListItem key={n.id} divider sx={{ bgcolor: n.read ? 'transparent' : 'action.hover' }}>
-            <ListItemText
-              primary={
-                <>
-                  <Link component={RouterLink} to={`/profile/${n.actor.username}`} underline="hover" fontWeight={700}>
-                    @{n.actor.username}
-                  </Link>{' '}
-                  {MESSAGES[n.type]}
-                </>
-              }
-              secondary={new Date(n.created_at).toLocaleString()}
-            />
+          <ListItem
+            key={n.id}
+            disablePadding
+            divider
+            sx={{ bgcolor: n.read ? 'transparent' : 'action.hover' }}
+          >
+            <ListItemButton component={RouterLink} to={destinationOf(n)}>
+              <ListItemText
+                primary={
+                  <>
+                    <b>@{n.actor.username}</b> {MESSAGES[n.type]}
+                  </>
+                }
+                secondary={new Date(n.created_at).toLocaleString()}
+              />
+            </ListItemButton>
           </ListItem>
         ))}
       </List>

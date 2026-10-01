@@ -11,10 +11,10 @@ import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
 import UserAvatar from './UserAvatar';
 
-export default function PostCard({ post, onChange, onDelete }) {
+export default function PostCard({ post, onChange, onDelete, defaultShowComments = false }) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
 
   const liked = post.liked_by_me;
   const likeCount = post.like_count;

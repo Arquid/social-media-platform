@@ -12,14 +12,14 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Create and delete posts
 - Like posts and comment on them (like and comment counts are computed in the database through the `posts_feed` view)
 - Follow / unfollow users, with a "Following" feed
-- Notifications for likes, comments and new followers
+- Notifications for likes, comments and new followers. Clicking a like or comment notification opens the post on its own page (`/post/:id`, comments open, updates in real time); a follow notification opens the follower's profile
 - Cursor-based pagination: feeds load 20 posts at a time with a "Load more" button
 - Code splitting: pages are loaded on demand (`React.lazy`) and the big libraries (React, Material UI, Supabase) are built into separate, cacheable files (no file over 270 kB, app code about 6 kB)
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 66 unit/component tests (Vitest) and 36 end-to-end tests (Playwright)
+- Automated tests: 95 unit/component tests (Vitest) and 40 end-to-end tests (Playwright)
 - Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
@@ -139,7 +139,7 @@ src/
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
 ├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute, UserAvatar, EditProfileDialog
-├── pages/                   # Login, Register, Home, Profile, Notifications
+├── pages/                   # Login, Register, Home, Profile, PostPage, Notifications
 └── test/                    # Test setup, Supabase mocks and render helper (*.test.jsx files live next to the code)
 e2e/                         # Playwright end-to-end tests
 .github/workflows/ci.yml     # GitHub Actions: lint, unit tests, build, e2e
@@ -156,11 +156,11 @@ supabase/
 npm test
 ```
 
-These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
+These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the post page (invalid ids, real-time updates, deletion), the notifications page (links, marking as read), the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage.
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases.
 
 ```bash
 npm run db:start      # wait a few seconds until Supabase is ready
@@ -207,7 +207,8 @@ The app can be deployed to Vercel or Netlify:
 
 - Images in posts (Supabase Storage)
 - Avatars next to comments and in the notification list
-- Post links from notifications and a 404 page
+- A 404 page for unknown addresses (unknown posts already show a message)
+- Links from feed posts (for example from the timestamp) to the post page
 - User search
 - Infinite scroll instead of the "Load more" button
 - Dark mode

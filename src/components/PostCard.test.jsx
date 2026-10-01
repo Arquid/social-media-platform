@@ -17,6 +17,11 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }));
 
+// The comment section has its own tests; here it is only a placeholder
+vi.mock('./CommentSection', () => ({
+  default: ({ postId }) => <div>Comments of post {postId}</div>,
+}));
+
 const basePost = {
   id: 7,
   user_id: 'author-1',
@@ -57,6 +62,24 @@ describe('PostCard', () => {
       'src',
       'http://storage.test/author-1/me.png'
     );
+  });
+
+  it('keeps the comments closed by default and opens them on request', async () => {
+    renderWithProviders(<PostCard post={basePost} />);
+
+    expect(screen.queryByText('Comments of post 7')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show comments' }));
+    expect(await screen.findByText('Comments of post 7')).toBeInTheDocument();
+  });
+
+  it('can start with the comments open (used on the post page)', async () => {
+    renderWithProviders(<PostCard post={basePost} defaultShowComments />);
+
+    expect(screen.getByText('Comments of post 7')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide comments' })).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide comments' }));
+    await waitFor(() => expect(screen.queryByText('Comments of post 7')).not.toBeInTheDocument());
   });
 
   it('labels the like button according to liked_by_me', () => {
