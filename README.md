@@ -1,5 +1,7 @@
 # Socialy - Social Media Platform
 
+[![CI](https://github.com/Arquid/social-media-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Arquid/social-media-platform/actions/workflows/ci.yml)
+
 A social media web app built with React and Supabase. Users can sign up, post, like, comment, follow each other and get real-time notifications.
 
 ## Features
@@ -16,6 +18,7 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
 - Automated tests: 28 unit/component tests (Vitest) and 19 end-to-end tests (Playwright)
+- Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
 ## Tech Stack
@@ -25,12 +28,13 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - [React Router](https://reactrouter.com)
 - [Supabase](https://supabase.com) (Auth, PostgreSQL, Row Level Security, Realtime), with the Supabase CLI and Docker for local development
 - [Vitest](https://vitest.dev) + [React Testing Library](https://testing-library.com/react) for unit tests, [Playwright](https://playwright.dev) for end-to-end tests
+- [GitHub Actions](https://docs.github.com/actions) for continuous integration
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22.12 or newer (the test tools do not support Node 20)
 - A free [Supabase](https://supabase.com) account
 
 ### 1. Clone and install
@@ -135,6 +139,7 @@ src/
 ├── pages/                   # Login, Register, Home, Profile, Notifications
 └── test/                    # Test setup, Supabase mocks and render helper (*.test.jsx files live next to the code)
 e2e/                         # Playwright end-to-end tests
+.github/workflows/ci.yml     # GitHub Actions: lint, unit tests, build, e2e
 supabase/
 ├── config.toml              # Local Supabase (Docker) configuration
 └── migrations/              # Database schema, triggers, RLS policies
@@ -161,8 +166,17 @@ npm run test:e2e
 
 - Requires `.env.localdb` (see "Local Development with Docker"). The tests refuse to run if it does not point to `localhost`.
 - The dev server for the tests starts automatically on port 5175.
-- The tests use the Edge that ships with Windows, so no browser download is needed. Use `E2E_BROWSER=chrome npm run test:e2e` to use Chrome instead.
+- By default the tests use the Edge that ships with Windows, so no browser download is needed. Use `E2E_BROWSER=chrome npm run test:e2e` to use Chrome instead, or run `npx playwright install chromium` and use `E2E_BROWSER=chromium`.
 - Test reports are written to `playwright-report/` (git-ignored).
+
+### Continuous integration (GitHub Actions)
+
+The workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and on every pull request:
+
+1. **Lint, unit tests and build** (`npm run lint`, `npm test`, `npm run build`).
+2. **End-to-end tests**, after step 1 succeeds: starts a local Supabase in Docker (all migrations are applied to a fresh database), creates `.env.localdb` from `supabase status`, installs Chromium and runs `npm run test:e2e`. If a test fails, the Playwright report and traces are uploaded as the `playwright-report` artifact (kept for 7 days).
+
+No secrets are needed: the end-to-end tests only use the throwaway local database inside the CI runner.
 
 ### Manual check of real-time features
 
@@ -188,7 +202,6 @@ The app can be deployed to Vercel or Netlify:
 
 ## Ideas for Future Development
 
-- GitHub Actions workflow that runs lint, unit tests and build on every push
 - Profile editing (bio, display name) and avatars
 - Image uploads with Supabase Storage
 - Post links from notifications and a 404 page
