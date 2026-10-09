@@ -12,14 +12,14 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Create and delete posts
 - Like posts and comment on them (like and comment counts are computed in the database through the `posts_feed` view)
 - Follow / unfollow users, with a "Following" feed
-- Notifications for likes, comments and new followers. Clicking a like or comment notification opens the post on its own page (`/post/:id`, comments open, updates in real time); a follow notification opens the follower's profile
+- Notifications for likes, comments and new followers. Clicking a like or comment notification opens the post on its own page (`/post/:id`, comments open, updates in real time); a follow notification opens the follower's profile. Repeating an action does not spam the recipient: like, unlike, like again (or follow, unfollow, follow again) gives one notification, enforced by unique indexes in the database. Every comment still notifies
 - Cursor-based pagination: feeds load 20 posts at a time with a "Load more" button
 - Code splitting: pages are loaded on demand (`React.lazy`) and the big libraries (React, Material UI, Supabase) are built into separate, cacheable files (no file over 270 kB, app code about 6 kB)
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 95 unit/component tests (Vitest) and 40 end-to-end tests (Playwright)
+- Automated tests: 95 unit/component tests (Vitest) and 49 end-to-end tests (Playwright)
 - Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
@@ -50,7 +50,7 @@ npm install
 ### 2. Set up Supabase
 
 1. Create a new project in the Supabase dashboard.
-2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index, username format constraint, profile editing and avatars). The last one also creates the public `avatars` storage bucket and its policies.
+2. Open **SQL Editor -> New query**, then paste and run each file in [`supabase/migrations/`](supabase/migrations/) **in filename order** (initial schema, `posts_feed` view, pagination index, username format constraint, profile editing and avatars, notification de-duplication). The avatars migration also creates the public `avatars` storage bucket and its policies. The last migration first deletes duplicate like/follow notifications that already exist (keeping the oldest) and then adds the unique indexes.
    This creates the tables, notification triggers, Row Level Security policies and the realtime setup.
 3. For local development, go to **Authentication -> Providers -> Email** and turn **Confirm email** off.
 4. Go to **Project Settings -> API** and copy the **Project URL** and the **anon public** key.
@@ -160,15 +160,15 @@ These run without any backend: the Supabase client is mocked. They cover route p
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases.
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases. `e2e/notifications.spec.js` proves that repeated likes and follows do not create duplicate notifications (while comments still do), that read notifications stay read and that users cannot create notifications themselves.
 
 ```bash
-npm run db:start      # wait a few seconds until Supabase is ready
+npm run db:start
 npm run test:e2e
 ```
 
 - Requires `.env.localdb` (see "Local Development with Docker"). The tests refuse to run if it does not point to `localhost`.
-- The dev server for the tests starts automatically on port 5175.
+- The dev server for the tests starts automatically on port 5175. Before the first test the setup also waits until Supabase Realtime accepts subscriptions, so you can run the tests right after `npm run db:start` or `npm run db:reset`.
 - By default the tests use the Edge that ships with Windows, so no browser download is needed. Use `E2E_BROWSER=chrome npm run test:e2e` to use Chrome instead, or run `npx playwright install chromium` and use `E2E_BROWSER=chromium`.
 - Test reports are written to `playwright-report/` (git-ignored).
 
