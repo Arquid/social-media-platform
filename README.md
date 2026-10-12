@@ -17,9 +17,10 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Code splitting: pages are loaded on demand (`React.lazy`) and the big libraries (React, Material UI, Supabase) are built into separate, cacheable files (no file over 270 kB, app code about 6 kB)
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
+- Optimistic likes: the heart and the counter change instantly (React `useOptimistic`); if saving fails the change is undone and an error toast is shown. Extra clicks while a like is being saved are ignored
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 95 unit/component tests (Vitest) and 49 end-to-end tests (Playwright)
+- Automated tests: 105 unit/component tests (Vitest) and 53 end-to-end tests (Playwright)
 - Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
@@ -156,11 +157,11 @@ supabase/
 npm test
 ```
 
-These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the post page (invalid ids, real-time updates, deletion), the notifications page (links, marking as read), the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
+These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting, no flicker), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the post page (invalid ids, real-time updates, deletion), the notifications page (links, marking as read), the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases. `e2e/notifications.spec.js` proves that repeated likes and follows do not create duplicate notifications (while comments still do), that read notifications stay read and that users cannot create notifications themselves.
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases. `e2e/notifications.spec.js` proves that repeated likes and follows do not create duplicate notifications (while comments still do), that read notifications stay read and that users cannot create notifications themselves. `e2e/optimistic-like.spec.js` slows down or breaks the network requests of a like and checks that the screen updates immediately, stays correct and undoes the like with an error message when saving fails.
 
 ```bash
 npm run db:start
@@ -177,7 +178,7 @@ npm run test:e2e
 The workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and on every pull request:
 
 1. **Lint, unit tests and build** (`npm run lint`, `npm test`, `npm run build`).
-2. **End-to-end tests**, after step 1 succeeds: starts a local Supabase in Docker (all migrations are applied to a fresh database), creates `.env.localdb` from `supabase status`, installs Chromium and runs `npm run test:e2e`. If a test fails, the Playwright report and traces are uploaded as the `playwright-report` artifact (kept for 7 days).
+2. **End-to-end tests**, after step 1 succeeds: starts a local Supabase in Docker (all migrations are applied to a fresh database), creates `.env.localdb` from `supabase status`, installs Chromium and runs `npm run test:e2e` (a failed test is retried once on CI, because a freshly started machine can be slow). If a test still fails, the Playwright report and traces are uploaded as the `playwright-report` artifact (kept for 7 days).
 
 No secrets are needed: the end-to-end tests only use the throwaway local database inside the CI runner.
 

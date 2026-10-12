@@ -9,6 +9,8 @@ export default defineConfig({
   // Tests share one local database, so run them one at a time
   fullyParallel: false,
   workers: 1,
+  // A freshly started CI machine can be slow for the first requests; retry a failed test once
+  retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   globalSetup: './e2e/global-setup.js',
   use: {

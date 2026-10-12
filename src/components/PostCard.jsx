@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useOptimistic, useTransition } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Card, CardContent, CardActions, Typography, IconButton, Link, Collapse, Box } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -15,22 +15,42 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
   const { user } = useAuth();
   const { showToast } = useToast();
   const [showComments, setShowComments] = useState(defaultShowComments);
+  const [isPending, startTransition] = useTransition();
+  const [shownPost, setShownLiked] = useOptimistic(post, (current, nextLiked) => {
+    // The fresh post can arrive while the request is still being finished. If it already
+    // contains the change, do not count it twice (the number would flash one too high).
+    if (current.liked_by_me === nextLiked) return current;
 
-  const liked = post.liked_by_me;
-  const likeCount = post.like_count;
+    return {
+      ...current,
+      liked_by_me: nextLiked,
+      like_count: current.like_count + (nextLiked ? 1 : -1),
+    };
+  });
+
+  const liked = shownPost.liked_by_me;
+  const likeCount = shownPost.like_count;
   const commentCount = post.comment_count;
   const isOwner = post.user_id === user.id;
 
-  async function toggleLike() {
-    const { error } = liked
-      ? await supabase.from('likes').delete().match({ post_id: post.id, user_id: user.id })
-      : await supabase.from('likes').insert({ post_id: post.id, user_id: user.id });
+  function toggleLike() {
+    if (isPending) return;
 
-    if (error) {
-      showToast(`Could not update like: ${error.message}`);
-      return;
-    }
-    onChange?.(post.id);
+    startTransition(async () => {
+      const nextLiked = !liked;
+      setShownLiked(nextLiked);
+
+      const { error } = nextLiked
+        ? await supabase.from('likes').insert({ post_id: post.id, user_id: user.id })
+        : await supabase.from('likes').delete().match({ post_id: post.id, user_id: user.id });
+
+      if (error) {
+        showToast(`Could not update like: ${error.message}`);
+        return;
+      }
+
+      await onChange?.(post.id);
+    });
   }
 
   async function handleDelete() {
