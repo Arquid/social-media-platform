@@ -14,13 +14,14 @@ A social media web app built with React and Supabase. Users can sign up, post, l
 - Follow / unfollow users, with a "Following" feed
 - Notifications for likes, comments and new followers. Clicking a like or comment notification opens the post on its own page (`/post/:id`, comments open, updates in real time); a follow notification opens the follower's profile. Repeating an action does not spam the recipient: like, unlike, like again (or follow, unfollow, follow again) gives one notification, enforced by unique indexes in the database. Every comment still notifies
 - Cursor-based pagination: feeds load 20 posts at a time with a "Load more" button
+- Error handling in the interface: unknown addresses show a 404 page (also for visitors who are not logged in), and an error boundary replaces a crashed page with an error message instead of a blank screen. The navigation keeps working, moving to another page clears the error, and an outdated app version (a page file that no longer exists after a new release) is recognised and answered with a "Reload page" button
 - Code splitting: pages are loaded on demand (`React.lazy`) and the big libraries (React, Material UI, Supabase) are built into separate, cacheable files (no file over 270 kB, app code about 6 kB)
 - Real-time updates for feeds, comments and the notification badge (only the changed post is fetched, the whole feed is not reloaded)
 - Username validation on sign up (3-20 characters: lowercase letters, numbers, underscores), enforced both in the form and by a database check constraint
 - Optimistic likes: the heart and the counter change instantly (React `useOptimistic`); if saving fails the change is undone and an error toast is shown. Extra clicks while a like is being saved are ignored
 - Error toasts when likes, comments, follows or deletes fail
 - Accessible icon buttons (ARIA labels)
-- Automated tests: 105 unit/component tests (Vitest) and 53 end-to-end tests (Playwright)
+- Automated tests: 131 unit/component tests (Vitest) and 61 end-to-end tests (Playwright)
 - Continuous integration: GitHub Actions runs lint, unit tests, build and the end-to-end tests on every push and pull request
 - Responsive UI built with Material UI
 
@@ -134,13 +135,13 @@ npm run db:reset      # wipe the local database and re-apply migrations
 ```
 src/
 ├── main.jsx                 # App entry, theme and providers
-├── App.jsx                  # Routes (pages are lazy-loaded)
+├── App.jsx                  # Routes (pages are lazy-loaded, wrapped in an error boundary, 404 route)
 ├── lib/supabaseClient.js    # Supabase client
 ├── lib/avatars.js           # Avatar upload, delete, URL and file validation helpers
 ├── context/                 # Auth and toast providers with their context objects
 ├── hooks/                   # useAuth and useToast hooks
-├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute, UserAvatar, EditProfileDialog
-├── pages/                   # Login, Register, Home, Profile, PostPage, Notifications
+├── components/              # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton, ProtectedRoute, ErrorBoundary, UserAvatar, EditProfileDialog
+├── pages/                   # Login, Register, Home, Profile, PostPage, Notifications, NotFound
 └── test/                    # Test setup, Supabase mocks and render helper (*.test.jsx files live next to the code)
 e2e/                         # Playwright end-to-end tests
 .github/workflows/ci.yml     # GitHub Actions: lint, unit tests, build, e2e
@@ -157,11 +158,11 @@ supabase/
 npm test
 ```
 
-These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting, no flicker), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the post page (invalid ids, real-time updates, deletion), the notifications page (links, marking as read), the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails) and the avatar helpers (file validation, storage calls).
+These run without any backend: the Supabase client is mocked. They cover route protection, sign up validation, post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting, no flicker), the feed (pagination cursor, duplicate protection, following and profile filters, realtime cleanup), the profile page, the post page (invalid ids, real-time updates, deletion), the notifications page (links, marking as read), the edit profile dialog (saving, picture upload/replace/remove, cleanup when saving fails), the avatar helpers (file validation, storage calls), the 404 page, the error boundary (catching, "Try again", reset when the page changes, outdated version detection) and the app routing (unknown addresses, protected pages, a crashed page keeps the navigation working).
 
 ### End-to-end tests (Playwright)
 
-The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases. `e2e/notifications.spec.js` proves that repeated likes and follows do not create duplicate notifications (while comments still do), that read notifications stay read and that users cannot create notifications themselves. `e2e/optimistic-like.spec.js` slows down or breaks the network requests of a like and checks that the screen updates immediately, stays correct and undoes the like with an error message when saving fails.
+The e2e tests drive a real browser against the **local** Supabase, create throwaway accounts and use two separate browser sessions to verify real-time behavior (posts, likes, comments, follows, notifications). `e2e/database.spec.js` calls the Supabase API directly, skipping the form, to prove that the database rejects invalid and duplicate usernames. `e2e/profile-storage.spec.js` does the same for avatar uploads (own folder only, images only, max 2 MB) and the profile field limits. `e2e/profile.spec.js` edits profiles in the browser, uploads, replaces and removes real picture files and checks that old files are deleted from storage. `e2e/post-page.spec.js` clicks notifications to open the post page, checks its live updates and the "not found" cases. `e2e/notifications.spec.js` proves that repeated likes and follows do not create duplicate notifications (while comments still do), that read notifications stay read and that users cannot create notifications themselves. `e2e/optimistic-like.spec.js` slows down or breaks the network requests of a like and checks that the screen updates immediately, stays correct and undoes the like with an error message when saving fails. `e2e/errors.spec.js` opens unknown addresses (logged in and logged out) and breaks a page on purpose, once by blocking its file and once by making it crash, to check the 404 page, the error page, the working navigation and the "Reload page" recovery.
 
 ```bash
 npm run db:start
@@ -208,7 +209,6 @@ The app can be deployed to Vercel or Netlify:
 
 - Images in posts (Supabase Storage)
 - Avatars next to comments and in the notification list
-- A 404 page for unknown addresses (unknown posts already show a message)
 - Links from feed posts (for example from the timestamp) to the post page
 - User search
 - Infinite scroll instead of the "Load more" button
