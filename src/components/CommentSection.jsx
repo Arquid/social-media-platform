@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Link, Stack } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 
@@ -55,7 +56,8 @@ export default function CommentSection({ postId }) {
       .insert({ post_id: postId, user_id: user.id, content: text.trim() });
 
     if (error) {
-      showToast(`Could not add comment: ${error.message}`);
+      if (isRateLimited(error)) showToast(error.message, 'warning');
+      else showToast(`Could not add comment: ${error.message}`);
       return;
     }
 

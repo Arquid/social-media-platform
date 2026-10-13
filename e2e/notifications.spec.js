@@ -172,8 +172,12 @@ test.describe('notifications in the app', () => {
       ['Unlike post', 'Like post'],
       ['Like post', 'Unlike post'],
     ]) {
-      await card.getByRole('button', { name: from }).click();
-      await expect(card.getByRole('button', { name: to })).toBeVisible();
+      // The app ignores a click while the previous like is still being saved, so try again
+      // until the click is accepted (the button then flips at once).
+      await expect(async () => {
+        await card.getByRole('button', { name: from }).click({ timeout: 1000 });
+        await expect(card.getByRole('button', { name: to })).toBeVisible({ timeout: 500 });
+      }).toPass({ intervals: [300], timeout: 15_000 });
     }
 
     await expect(bell(a)).toHaveAttribute('aria-label', 'Notifications, 1 unread');

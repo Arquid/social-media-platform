@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Paper, TextField, Button, Box, Alert } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 
 export default function PostForm({ onPosted }) {
@@ -8,6 +9,7 @@ export default function PostForm({ onPosted }) {
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -20,11 +22,13 @@ export default function PostForm({ onPosted }) {
     setSubmitting(false);
 
     if (error) {
-      console.error('Post insert failed:', error);
+      if (!isRateLimited(error)) console.error('Post insert failed:', error);
+      setRateLimited(isRateLimited(error));
       setError(error.message);
       return;
     }
 
+    setRateLimited(false);
     setError('');
     setContent('');
     onPosted?.();
@@ -33,7 +37,7 @@ export default function PostForm({ onPosted }) {
   return (
     <Paper sx={{ p: 2, mb: 2 }}>
       <form onSubmit={handleSubmit}>
-        {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+        {error && <Alert severity={rateLimited ? 'warning' : 'error'} sx={{ mb: 1 }}>{error}</Alert>}
         <TextField
           fullWidth
           multiline

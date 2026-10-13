@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { localSupabase } from './env';
 
 export const { url: API, anonKey: KEY } = localSupabase();
@@ -44,4 +45,14 @@ export function patchProfile(request, user, values) {
     headers: authHeaders(user, { Prefer: 'return=representation' }),
     data: values,
   });
+}
+
+// "A minute passes": make every logged action two minutes older. The database is reached
+// through Docker, because the app itself is not allowed to touch the log table.
+export function ageRateLimitEvents() {
+  execFileSync('docker', [
+    'exec', 'supabase_db_social-media-platform',
+    'psql', '-U', 'postgres', '-c',
+    "update rate_limit_events set created_at = created_at - interval '2 minutes'",
+  ]);
 }
