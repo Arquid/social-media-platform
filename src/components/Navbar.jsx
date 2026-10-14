@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, IconButton, Badge, Button, Box } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import SearchIcon from '@mui/icons-material/Search';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 
@@ -79,6 +80,9 @@ export default function Navbar() {
             {username && (
               <Button component={RouterLink} to={`/profile/${username}`}>Profile</Button>
             )}
+            <IconButton component={RouterLink} to="/search" aria-label="Search users">
+              <SearchIcon />
+            </IconButton>
             <IconButton
               component={RouterLink}
               to="/notifications"

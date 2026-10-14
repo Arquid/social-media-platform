@@ -21,6 +21,7 @@ vi.mock('./pages/Login', () => ({ default: () => <div>Login page</div> }));
 vi.mock('./pages/Register', () => ({ default: () => <div>Register page</div> }));
 vi.mock('./pages/Profile', () => ({ default: () => <div>Profile page</div> }));
 vi.mock('./pages/PostPage', () => ({ default: () => <div>Post page</div> }));
+vi.mock('./pages/Search', () => ({ default: () => <div>Search page</div> }));
 
 let notificationsBroken = false;
 vi.mock('./pages/Notifications', () => ({
@@ -66,6 +67,22 @@ describe('App routing', () => {
   it('still sends visitors from protected pages to the login page', async () => {
     renderWithProviders(<App />, { route: '/notifications', user: null });
     expect(await screen.findByText('Login page')).toBeInTheDocument();
+  });
+
+  it('shows the search page at /search, also with a text in the address', async () => {
+    const { unmount } = renderWithProviders(<App />, { route: '/search' });
+    expect(await screen.findByText('Search page')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<App />, { route: '/search?q=anna' });
+    expect(await screen.findByText('Search page')).toBeInTheDocument();
+  });
+
+  it('keeps the search page for logged-in users only', async () => {
+    renderWithProviders(<App />, { route: '/search?q=anna', user: null });
+
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
+    expect(screen.queryByText('Search page')).not.toBeInTheDocument();
   });
 
   it('"Back to the feed" on the 404 page leads home', async () => {
