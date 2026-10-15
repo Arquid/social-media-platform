@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
 import UserAvatar from './UserAvatar';
+import TimeAgo from './TimeAgo';
 
 export default function PostCard({ post, onChange, onDelete, defaultShowComments = false }) {
   const { user } = useAuth();
@@ -72,7 +73,7 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
             @{post.username}
           </Link>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-            {new Date(post.created_at).toLocaleString()}
+            <TimeAgo date={post.created_at} />
           </Typography>
         </Box>
         <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{post.content}</Typography>

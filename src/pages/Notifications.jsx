@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Paper, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import TimeAgo from '../components/TimeAgo';
 
 const MESSAGES = {
   like: 'liked your post',
@@ -85,7 +86,7 @@ export default function Notifications() {
                     <b>@{n.actor.username}</b> {MESSAGES[n.type]}
                   </>
                 }
-                secondary={new Date(n.created_at).toLocaleString()}
+                secondary={<TimeAgo date={n.created_at} />}
               />
             </ListItemButton>
           </ListItem>

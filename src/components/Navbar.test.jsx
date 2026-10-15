@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Navbar from './Navbar';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
@@ -103,6 +104,35 @@ describe('Navbar', () => {
 
       expect(supabase.from).not.toHaveBeenCalled();
       expect(supabase.channel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('theme toggle', () => {
+    it('is shown to a logged-in user', () => {
+      renderWithProviders(<Navbar />, { withTheme: true });
+
+      expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeInTheDocument();
+    });
+
+    it('is shown to a visitor who is not logged in too', () => {
+      renderWithProviders(<Navbar />, { user: null, withTheme: true });
+
+      expect(screen.getByRole('button', { name: 'Switch to dark theme' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument();
+    });
+
+    it('changes to the other theme when pressed', async () => {
+      renderWithProviders(<Navbar />, { user: null, withTheme: true });
+
+      await userEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }));
+
+      expect(screen.getByRole('button', { name: 'Switch to light theme' })).toBeInTheDocument();
+    });
+
+    it('is not shown when the page has no theme provider', () => {
+      renderWithProviders(<Navbar />, { user: null });
+
+      expect(screen.queryByRole('button', { name: /Switch to/ })).not.toBeInTheDocument();
     });
   });
 });

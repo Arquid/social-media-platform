@@ -5,6 +5,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import SearchIcon from '@mui/icons-material/Search';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import ThemeToggle from './ThemeToggle';
 
 async function fetchUnreadCount(userId) {
   const { count } = await supabase
@@ -74,7 +75,7 @@ export default function Navbar() {
         >
           Socialy
         </Typography>
-
+        <ThemeToggle />
         {user ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {username && (

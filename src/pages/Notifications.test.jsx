@@ -56,6 +56,27 @@ describe('Notifications page', () => {
     expect(await row('@carol started following you')).toBeInTheDocument();
   });
 
+  it('shows when each notification happened in words, with the exact time as a tooltip', async () => {
+    // Only the date is faked, so the timers of the page keep working
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+    try {
+      mockNotifications([
+        { id: 3, type: 'follow', post_id: null, read: false, created_at: new Date(2026, 5, 15, 11, 55).toISOString(), actor: { username: 'carol' } },
+        { id: 2, type: 'comment', post_id: 9, read: false, created_at: new Date(2026, 5, 13, 12, 0).toISOString(), actor: { username: 'bob' } },
+        { id: 1, type: 'like', post_id: 7, read: true, created_at: new Date(2025, 11, 19, 8, 0).toISOString(), actor: { username: 'bob' } },
+      ]);
+      renderPage();
+
+      expect(await row('@carol started following you.*5 minutes ago')).toBeInTheDocument();
+      expect(await row('@bob commented on your post.*2 days ago')).toBeInTheDocument();
+      expect(await row('@bob liked your post.*Dec 19, 2025')).toBeInTheDocument();
+      expect(screen.getByText('5 minutes ago').closest('time')).toHaveAttribute('title');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('links likes and comments to the post', async () => {
     mockNotifications();
     renderPage();

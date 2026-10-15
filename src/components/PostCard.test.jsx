@@ -48,6 +48,34 @@ describe('PostCard', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
+  it('shows how long ago the post was written, with the exact time as a tooltip', () => {
+    vi.useFakeTimers({ toFake: ['Date'] }); // only the date, so the timers of the page keep working
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+    try {
+      const created = new Date(2026, 5, 15, 9, 0);
+      renderWithProviders(<PostCard post={{ ...basePost, created_at: created.toISOString() }} />);
+
+      const time = screen.getByText('3 hours ago');
+      expect(time.tagName).toBe('TIME');
+      expect(time).toHaveAttribute('dateTime', created.toISOString());
+      expect(time.getAttribute('title').replace(/\s/g, ' ')).toBe('Jun 15, 2026, 9:00 AM');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows the date for an old post', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+    try {
+      renderWithProviders(<PostCard post={{ ...basePost, created_at: new Date(2025, 2, 3, 10, 0).toISOString() }} />);
+
+      expect(screen.getByText('Mar 3, 2025')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the author\'s first letter when they have no avatar', () => {
     renderWithProviders(<PostCard post={basePost} />);
 
