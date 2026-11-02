@@ -101,6 +101,28 @@ test.describe('queries use the indexes on large tables', () => {
     expect(plan).toContain('Index Scan Backward using posts_pkey');
   });
 
+  test('the first page of the Following feed is read from the newest posts, not from all of them', () => {
+    const plan = planOf({
+      setup: `
+        insert into profiles (id, username)
+          select ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid, 'idxfollow_' || g from generate_series(1, 300) g;
+        insert into posts (user_id, content)
+          select ('00000000-0000-0000-0001-' || lpad((1 + g % 300)::text, 12, '0'))::uuid, 'following plan post' from generate_series(1, 20000) g;
+        insert into likes (post_id, user_id) select id, gen_random_uuid() from posts where id % 2 = 0;
+        insert into follows (follower_id, following_id)
+          select '${TARGET_USER}', ('00000000-0000-0000-0001-' || lpad(g::text, 12, '0'))::uuid from generate_series(1, 100) g;
+      `,
+      analyze: ['profiles', 'posts', 'likes', 'follows'],
+      asUser: TARGET_USER,
+      // The same request as the Following tab
+      query: 'select * from posts_following_feed order by id desc limit 20',
+    });
+
+    expect(plan).not.toContain('Seq Scan on likes');
+    expect(plan).not.toContain('Seq Scan on posts');
+    expect(plan).toContain('Index Scan Backward using posts_pkey');
+  });
+
   test('the follower count of a profile uses the index', () => {
     const plan = planOf({
       setup: `

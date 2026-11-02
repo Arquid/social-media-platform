@@ -7,26 +7,16 @@ import PostCard from './PostCard';
 
 const PAGE_SIZE = 20;
 
-async function fetchFollowingIds(userId) {
-  const { data } = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', userId);
-  return (data ?? []).map((f) => f.following_id);
-}
-
 // Fetches one page of posts. beforeId is the cursor: only posts older than it are returned.
-async function fetchPosts({ authorId, followingIds, beforeId }) {
-  if (followingIds && followingIds.length === 0) return { data: [] };
-
+// On the Following tab the database view filters out everyone the user does not follow.
+async function fetchPosts({ authorId, followingOnly, beforeId }) {
   let query = supabase
-    .from('posts_feed')
+    .from(followingOnly ? 'posts_following_feed' : 'posts_feed')
     .select('*')
     .order('id', { ascending: false })
     .limit(PAGE_SIZE);
 
   if (authorId) query = query.eq('user_id', authorId);
-  if (followingIds) query = query.in('user_id', followingIds);
   if (beforeId) query = query.lt('id', beforeId);
 
   const { data, error } = await query;
@@ -37,24 +27,15 @@ async function fetchPosts({ authorId, followingIds, beforeId }) {
   return { data };
 }
 
-// Fetches a single row from the feed view (used to refresh one post)
-async function fetchPostById(id) {
+// Fetches a single row from a feed view (used to refresh one post)
+async function fetchPostById(id, view = 'posts_feed') {
   const { data, error } = await supabase
-    .from('posts_feed')
+    .from(view)
     .select('*')
     .eq('id', id)
     .maybeSingle();
   if (error) console.error('Post refresh failed:', error);
   return { data, error };
-}
-
-async function isFollowing(followerId, targetId) {
-  const { data } = await supabase
-    .from('follows')
-    .select('follower_id')
-    .match({ follower_id: followerId, following_id: targetId })
-    .maybeSingle();
-  return !!data;
 }
 
 export default function Feed({ authorId, followingOnly = false }) {
@@ -73,9 +54,6 @@ export default function Feed({ authorId, followingOnly = false }) {
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
-
-  // Remembers who the user follows so "Load more" does not need to fetch it again
-  const followingIdsRef = useRef(null);
 
   const removePost = useCallback((postId) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -98,11 +76,7 @@ export default function Feed({ authorId, followingOnly = false }) {
     if (!last) return;
 
     setLoadingMore(true);
-    const result = await fetchPosts({
-      authorId,
-      followingIds: followingIdsRef.current,
-      beforeId: last.id,
-    });
+    const result = await fetchPosts({ authorId, followingOnly, beforeId: last.id });
     setLoadingMore(false);
 
     if (result.error) {
@@ -121,13 +95,7 @@ export default function Feed({ authorId, followingOnly = false }) {
   useEffect(() => {
     let active = true;
 
-    async function loadFirstPage() {
-      const followingIds = followingOnly ? await fetchFollowingIds(userId) : null;
-      followingIdsRef.current = followingIds;
-      return fetchPosts({ authorId, followingIds });
-    }
-
-    loadFirstPage().then((result) => {
+    fetchPosts({ authorId, followingOnly }).then((result) => {
       if (!active) return;
       if (result.data) {
         setPosts(result.data);
@@ -139,9 +107,10 @@ export default function Feed({ authorId, followingOnly = false }) {
 
     async function handleNewPost(row) {
       if (authorId && row.user_id !== authorId) return;
-      if (followingOnly && !(await isFollowing(userId, row.user_id))) return;
 
-      const { data } = await fetchPostById(row.id);
+      // On the Following tab the view has no row for people the user does not follow
+      const view = followingOnly ? 'posts_following_feed' : 'posts_feed';
+      const { data } = await fetchPostById(row.id, view);
       if (!active || !data) return;
 
       // Skip if the post is already in the list

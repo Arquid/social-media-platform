@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Feed from './Feed';
 import { supabase } from '../lib/supabaseClient';
@@ -114,24 +114,84 @@ describe('Feed', () => {
     expect(query.eq).toHaveBeenCalledWith('user_id', 'author-1');
   });
 
-  it('shows nothing extra when the user follows nobody', async () => {
-    const follows = createQuery({ data: [], error: null });
-    queueQueries(follows);
-    renderWithProviders(<Feed followingOnly />);
+  describe('Following tab', () => {
+    // Returns the function the feed registered for one realtime event
+    function realtimeHandler(channel, event, table) {
+      const call = channel.on.mock.calls.find(([, filter]) => filter.event === event && filter.table === table);
+      return call[2];
+    }
 
-    expect(await screen.findByText('No posts yet.')).toBeInTheDocument();
-    expect(supabase.from).toHaveBeenCalledTimes(1);
-    expect(supabase.from).toHaveBeenCalledWith('follows');
-  });
+    it('shows the empty state when the user follows nobody, with one request', async () => {
+      queueQueries(createQuery({ data: [], error: null }));
+      renderWithProviders(<Feed followingOnly />);
 
-  it('only loads posts from followed users on the Following tab', async () => {
-    const follows = createQuery({ data: [{ following_id: 'author-1' }], error: null });
-    const posts = createQuery({ data: makePosts(2), error: null });
-    queueQueries(follows, posts);
-    renderWithProviders(<Feed followingOnly />);
+      expect(await screen.findByText('No posts yet.')).toBeInTheDocument();
+      expect(supabase.from).toHaveBeenCalledTimes(1);
+      expect(supabase.from).toHaveBeenCalledWith('posts_following_feed');
+    });
 
-    await screen.findByText('Post 2');
-    expect(posts.in).toHaveBeenCalledWith('user_id', ['author-1']);
+    it('reads the following view and sends no list of ids to the server', async () => {
+      const posts = createQuery({ data: makePosts(2), error: null });
+      queueQueries(posts);
+      renderWithProviders(<Feed followingOnly />);
+
+      await screen.findByText('Post 2');
+      expect(supabase.from).toHaveBeenCalledTimes(1);
+      expect(supabase.from).toHaveBeenCalledWith('posts_following_feed');
+      expect(supabase.from).not.toHaveBeenCalledWith('follows');
+      expect(posts.in).not.toHaveBeenCalled();
+    });
+
+    it('keeps reading the following view when loading older posts', async () => {
+      const first = createQuery({ data: makePosts(20, 50), error: null });
+      const second = createQuery({ data: makePosts(5, 30), error: null });
+      queueQueries(first, second);
+      renderWithProviders(<Feed followingOnly />);
+
+      await screen.findByText('Post 31');
+      await userEvent.click(screen.getByRole('button', { name: /load more/i }));
+
+      expect(await screen.findByText('Post 26')).toBeInTheDocument();
+      expect(supabase.from).toHaveBeenNthCalledWith(2, 'posts_following_feed');
+      expect(second.lt).toHaveBeenCalledWith('id', 31);
+    });
+
+    it('adds a new post only if the following view returns it', async () => {
+      const channel = createChannel();
+      supabase.channel.mockReturnValue(channel);
+      const stranger = createQuery({ data: null, error: null });
+      const followed = createQuery({ data: makePosts(1, 99)[0], error: null });
+      queueQueries(createQuery({ data: makePosts(1), error: null }), stranger, followed);
+      renderWithProviders(<Feed followingOnly />);
+      await screen.findByText('Post 1');
+
+      const onInsert = realtimeHandler(channel, 'INSERT', 'posts');
+
+      // A post by someone the user does not follow: the view has no row for it
+      await act(() => onInsert({ new: { id: 98, user_id: 'stranger' } }));
+      expect(supabase.from).toHaveBeenNthCalledWith(2, 'posts_following_feed');
+      expect(stranger.eq).toHaveBeenCalledWith('id', 98);
+      expect(screen.queryByText('Post 99')).not.toBeInTheDocument();
+
+      // A post by a followed user is added to the top
+      await act(() => onInsert({ new: { id: 99, user_id: 'author-1' } }));
+      expect(await screen.findByText('Post 99')).toBeInTheDocument();
+      expect(supabase.from).toHaveBeenCalledTimes(3);
+      expect(supabase.from).not.toHaveBeenCalledWith('follows');
+    });
+
+    it('on the All tab a new post is fetched from the normal feed view', async () => {
+      const channel = createChannel();
+      supabase.channel.mockReturnValue(channel);
+      queueQueries(createQuery({ data: makePosts(1), error: null }), createQuery({ data: makePosts(1, 7)[0], error: null }));
+      renderWithProviders(<Feed />);
+      await screen.findByText('Post 1');
+
+      await act(() => realtimeHandler(channel, 'INSERT', 'posts')({ new: { id: 7, user_id: 'author-1' } }));
+
+      expect(await screen.findByText('Post 7')).toBeInTheDocument();
+      expect(supabase.from).toHaveBeenNthCalledWith(2, 'posts_feed');
+    });
   });
 
   it('unsubscribes from realtime when it unmounts', async () => {
