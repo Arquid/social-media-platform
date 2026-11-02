@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, act } from '@testing-library/react';
+import { screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Feed from './Feed';
 import { supabase } from '../lib/supabaseClient';
@@ -191,6 +191,119 @@ describe('Feed', () => {
 
       expect(await screen.findByText('Post 7')).toBeInTheDocument();
       expect(supabase.from).toHaveBeenNthCalledWith(2, 'posts_feed');
+    });
+  });
+
+  describe('a post the user just wrote', () => {
+    const postTexts = () => screen.getAllByText(/^Post \d+$/).map((el) => el.textContent);
+
+    // The effect for the new post starts before the one that loads the first page, so its
+    // request is the first one: queue it first. The lookup is held back until the test lets it
+    // finish, like a request that takes a moment.
+    function slowLookup() {
+      let finish;
+      const answer = new Promise((resolve) => {
+        finish = (post) => resolve({ data: post, error: null });
+      });
+      return { query: createQuery(answer), finish };
+    }
+
+    it('is shown at the top at once, without waiting for realtime', async () => {
+      const lookup = slowLookup();
+      queueQueries(lookup.query, createQuery({ data: makePosts(2), error: null }));
+      renderWithProviders(<Feed newPostId={7} />);
+      await screen.findByText('Post 2');
+
+      await act(async () => lookup.finish(makePosts(1, 7)[0]));
+
+      expect(screen.getByText('Post 7')).toBeInTheDocument();
+      expect(postTexts()).toEqual(['Post 7', 'Post 2', 'Post 1']);
+      expect(supabase.from).toHaveBeenNthCalledWith(1, 'posts_feed');
+    });
+
+    it('is not shown twice when realtime reports the same post', async () => {
+      const channel = createChannel();
+      supabase.channel.mockReturnValue(channel);
+      const row = makePosts(1, 7)[0];
+      const lookup = slowLookup();
+      queueQueries(lookup.query, createQuery({ data: makePosts(2), error: null }), createQuery({ data: row, error: null }));
+      renderWithProviders(<Feed newPostId={7} />);
+      await screen.findByText('Post 2');
+      await act(async () => lookup.finish(row));
+      expect(screen.getByText('Post 7')).toBeInTheDocument();
+
+      const onInsert = channel.on.mock.calls.find(([, f]) => f.event === 'INSERT' && f.table === 'posts')[2];
+      await act(() => onInsert({ new: { id: 7, user_id: 'author-1' } }));
+
+      expect(supabase.from).toHaveBeenCalledTimes(3);
+      expect(screen.getAllByText('Post 7')).toHaveLength(1);
+    });
+
+    it('is not shown twice when the first page already contains it', async () => {
+      const lookup = slowLookup();
+      queueQueries(lookup.query, createQuery({ data: makePosts(3, 7), error: null }));
+      renderWithProviders(<Feed newPostId={7} />);
+      await screen.findByText('Post 5');
+
+      await act(async () => lookup.finish(makePosts(1, 7)[0]));
+
+      expect(postTexts()).toEqual(['Post 7', 'Post 6', 'Post 5']);
+    });
+
+    it('does not jump to the top if it is older than the newest post (an old id after a tab switch)', async () => {
+      const lookup = slowLookup();
+      queueQueries(lookup.query, createQuery({ data: makePosts(3, 50), error: null }));
+      renderWithProviders(<Feed newPostId={5} />);
+      await screen.findByText('Post 50');
+
+      await act(async () => lookup.finish(makePosts(1, 5)[0]));
+
+      expect(postTexts()).toEqual(['Post 50', 'Post 49', 'Post 48']);
+    });
+
+    it('appears in an empty feed', async () => {
+      const lookup = slowLookup();
+      queueQueries(lookup.query, createQuery({ data: [], error: null }));
+      renderWithProviders(<Feed newPostId={7} />);
+      await screen.findByText('No posts yet.');
+
+      await act(async () => lookup.finish(makePosts(1, 7)[0]));
+
+      expect(screen.getByText('Post 7')).toBeInTheDocument();
+    });
+
+    it('is looked up in the following view on the Following tab, and not shown if it is not there', async () => {
+      queueQueries(
+        createQuery({ data: null, error: null }),
+        createQuery({ data: makePosts(1), error: null })
+      );
+      renderWithProviders(<Feed followingOnly newPostId={7} />);
+
+      await screen.findByText('Post 1');
+      await waitFor(() => expect(supabase.from).toHaveBeenCalledTimes(2));
+      expect(supabase.from).toHaveBeenNthCalledWith(1, 'posts_following_feed');
+      expect(postTexts()).toEqual(['Post 1']);
+    });
+
+    it('is ignored when it cannot be loaded', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      queueQueries(
+        createQuery({ data: null, error: { message: 'boom' } }),
+        createQuery({ data: makePosts(1), error: null })
+      );
+      renderWithProviders(<Feed newPostId={7} />);
+
+      await screen.findByText('Post 1');
+      await waitFor(() => expect(supabase.from).toHaveBeenCalledTimes(2));
+      expect(postTexts()).toEqual(['Post 1']);
+    });
+
+    it('does nothing when there is no new post', async () => {
+      queueQueries(createQuery({ data: makePosts(1), error: null }));
+      renderWithProviders(<Feed />);
+
+      await screen.findByText('Post 1');
+      expect(supabase.from).toHaveBeenCalledTimes(1);
     });
   });
 

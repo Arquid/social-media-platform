@@ -16,9 +16,11 @@ export default function PostForm({ onPosted }) {
     if (!content.trim()) return;
 
     setSubmitting(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('posts')
-      .insert({ user_id: user.id, content: content.trim() });
+      .insert({ user_id: user.id, content: content.trim() })
+      .select('id')
+      .single();
     setSubmitting(false);
 
     if (error) {
@@ -31,7 +33,7 @@ export default function PostForm({ onPosted }) {
     setRateLimited(false);
     setError('');
     setContent('');
-    onPosted?.();
+    onPosted?.(data.id);
   }
 
   return (

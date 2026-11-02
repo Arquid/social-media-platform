@@ -15,6 +15,9 @@ const RATE_LIMIT_ERROR = {
   message: 'You are posting too fast. Please wait a minute and try again.',
 };
 
+// What the database sends back for a saved post: the id of the new row
+const SAVED = { data: { id: 42 }, error: null };
+
 const box = () => screen.getByPlaceholderText("What's on your mind?");
 const postButton = () => screen.getByRole('button', { name: 'Post' });
 
@@ -54,7 +57,7 @@ describe('PostForm', () => {
   });
 
   it('saves the trimmed text as the logged-in user, clears the box and tells the parent', async () => {
-    const query = createQuery({ error: null });
+    const query = createQuery(SAVED);
     supabase.from.mockReturnValue(query);
     const onPosted = vi.fn();
     renderWithProviders(<PostForm onPosted={onPosted} />);
@@ -63,6 +66,10 @@ describe('PostForm', () => {
     await userEvent.click(postButton());
 
     await waitFor(() => expect(onPosted).toHaveBeenCalledTimes(1));
+    // The parent gets the id of the new post, so it can show the post at once
+    expect(onPosted).toHaveBeenCalledWith(42);
+    expect(query.select).toHaveBeenCalledWith('id');
+    expect(query.single).toHaveBeenCalled();
     expect(supabase.from).toHaveBeenCalledWith('posts');
     expect(query.insert).toHaveBeenCalledWith({ user_id: TEST_USER.id, content: 'my first post' });
     expect(box()).toHaveValue('');
@@ -83,7 +90,7 @@ describe('PostForm', () => {
     expect(postButton()).toBeDisabled();
     fireEvent.click(postButton()); // a real user cannot click it, but a script could
 
-    await act(async () => finish({ error: null }));
+    await act(async () => finish(SAVED));
     expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
@@ -150,7 +157,7 @@ describe('PostForm', () => {
     it('goes away when the next attempt works', async () => {
       supabase.from
         .mockReturnValueOnce(createQuery({ error: RATE_LIMIT_ERROR }))
-        .mockReturnValueOnce(createQuery({ error: null }));
+        .mockReturnValueOnce(createQuery(SAVED));
       renderWithProviders(<PostForm />);
 
       await write('second try');

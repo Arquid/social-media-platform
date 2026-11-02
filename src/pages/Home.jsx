@@ -5,15 +5,16 @@ import Feed from '../components/Feed';
 
 export default function Home() {
   const [tab, setTab] = useState(0);
+  const [newPostId, setNewPostId] = useState(null);
 
   return (
     <>
-      <PostForm />
+      <PostForm onPosted={setNewPostId} />
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="All" />
         <Tab label="Following" />
       </Tabs>
-      <Feed key={tab} followingOnly={tab === 1} />
+      <Feed key={tab} followingOnly={tab === 1} newPostId={newPostId} />
     </>
   );
 }

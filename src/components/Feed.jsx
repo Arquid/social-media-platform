@@ -38,7 +38,7 @@ async function fetchPostById(id, view = 'posts_feed') {
   return { data, error };
 }
 
-export default function Feed({ authorId, followingOnly = false }) {
+export default function Feed({ authorId, followingOnly = false, newPostId = null }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [posts, setPosts] = useState([]);
@@ -91,6 +91,29 @@ export default function Feed({ authorId, followingOnly = false }) {
     });
     setHasMore(result.data.length === PAGE_SIZE);
   }
+
+  // A post the user just wrote: show it at once instead of waiting for realtime
+  useEffect(() => {
+    if (!newPostId) return;
+
+    let active = true;
+    const view = followingOnly ? 'posts_following_feed' : 'posts_feed';
+
+    fetchPostById(newPostId, view).then(({ data }) => {
+      if (!active || !data) return;
+
+      setPosts((prev) => {
+        if (prev.some((p) => p.id === data.id)) return prev;
+        // Switching tabs shows this effect again with an old id: only newer posts go on top
+        if (prev.length > 0 && data.id < prev[0].id) return prev;
+        return [data, ...prev];
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [newPostId, followingOnly]);
 
   useEffect(() => {
     let active = true;
