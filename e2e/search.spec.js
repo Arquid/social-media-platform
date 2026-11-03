@@ -96,7 +96,14 @@ test.describe('user search', () => {
     const t = tag();
     await person(request, `hidden_${t}`);
 
-    expect(await search(request, null, `hidden_${t}`)).toEqual([]);
+    // Without logging in the function cannot even be called (permission denied)
+    const anonymous = await request.post(`${API}/rest/v1/rpc/search_profiles`, {
+      headers: { apikey: KEY, 'Content-Type': 'application/json' },
+      data: { search_text: `hidden_${t}` },
+    });
+    expect(anonymous.status()).toBe(401);
+    expect((await anonymous.json()).code).toBe('42501');
+
     expect(await search(request, searcher, `hidden_${t}`)).toHaveLength(1);
   });
 });

@@ -127,10 +127,13 @@ test.describe('post rate limit', () => {
     await repeat(POST_LIMIT, () => addPost(request, user));
 
     // The table is closed to the app: nothing can be read, deleted or added
+    // (403 "permission denied": the roles of the app have no privileges on it at all)
     const read = await request.get(`${API}/rest/v1/rate_limit_events?select=id`, { headers: authHeaders(user) });
-    expect(await read.json()).toEqual([]);
+    expect(read.status()).toBe(403);
+    expect((await read.json()).code).toBe('42501');
 
-    await request.delete(`${API}/rest/v1/rate_limit_events?user_id=eq.${user.id}`, { headers: authHeaders(user) });
+    const clear = await request.delete(`${API}/rest/v1/rate_limit_events?user_id=eq.${user.id}`, { headers: authHeaders(user) });
+    expect(clear.status()).toBe(403);
     const fake = await request.post(`${API}/rest/v1/rate_limit_events`, {
       headers: authHeaders(user, json),
       data: { user_id: user.id, kind: 'post', created_at: '2000-01-01T00:00:00Z' },
