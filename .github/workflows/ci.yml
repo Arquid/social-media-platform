@@ -51,9 +51,9 @@ jobs:
       - run: npm ci
 
       # Starts Postgres, Auth, REST and Realtime in Docker and applies supabase/migrations.
-      # Services the app does not use are excluded to make the start faster.
+      # Services the app does not use are excluded to make the start faster. Mailpit stays: the password reset tests read the emails from it.
       - name: Start local Supabase
-        run: npx supabase start -x studio,mailpit,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta
+        run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta
 
       - name: Create .env.localdb from the running Supabase
         run: |

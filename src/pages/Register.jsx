@@ -26,6 +26,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [checkEmail, setCheckEmail] = useState(false);
 
   const normalizedUsername = username.trim().toLowerCase();
   const usernameError = username ? getUsernameError(normalizedUsername) : '';
@@ -38,15 +39,28 @@ export default function Register() {
 
     setSubmitting(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username: normalizedUsername } },
+      options: { data: { username: normalizedUsername }, emailRedirectTo: window.location.origin },
     });
 
     setSubmitting(false);
     if (error) setError(friendlySignUpError(error.message));
-    else navigate('/');
+    else if (data.session) navigate('/');
+    else setCheckEmail(true); // the project requires email confirmation: no session until the link is opened
+  }
+
+  if (checkEmail) {
+    return (
+      <Paper sx={{ p: 4 }}>
+        <Typography variant="h5" gutterBottom>Check your email</Typography>
+        <Alert severity="success" sx={{ mb: 2 }}>
+          We sent a confirmation link to {email}. Open it to finish creating your account.
+        </Alert>
+        <Link component={RouterLink} to="/login">Back to log in</Link>
+      </Paper>
+    );
   }
 
   return (
@@ -60,16 +74,18 @@ export default function Register() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            autoComplete="username"
             error={!!usernameError}
             helperText={usernameError || '3-20 characters: letters, numbers and underscores'}
           />
-          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
           <TextField
             label="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="new-password"
             slotProps={{ htmlInput: { minLength: 6 } }}
           />
           <Button type="submit" variant="contained" disabled={submitting}>Sign up</Button>

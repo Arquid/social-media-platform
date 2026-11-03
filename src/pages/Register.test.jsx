@@ -47,7 +47,7 @@ describe('Register', () => {
   });
 
   it('lowercases and trims the username before signing up, then goes home', async () => {
-    supabase.auth.signUp.mockResolvedValue({ error: null });
+    supabase.auth.signUp.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
     renderRegister();
     await fillForm({ username: ' Valid_Name1 ' });
 
@@ -56,9 +56,44 @@ describe('Register', () => {
     expect(supabase.auth.signUp).toHaveBeenCalledWith({
       email: 'new@example.test',
       password: 'secret123',
-      options: { data: { username: 'valid_name1' } },
+      // The confirmation link, if the project sends one, must come back to this app
+      options: { data: { username: 'valid_name1' }, emailRedirectTo: window.location.origin },
     });
     expect(await screen.findByText('Home page')).toBeInTheDocument();
+  });
+
+  describe('when the project requires email confirmation (sign up gives no session)', () => {
+    async function signUpWithoutSession() {
+      supabase.auth.signUp.mockResolvedValue({ data: { session: null, user: { id: 'new-user' } }, error: null });
+      renderRegister();
+      await fillForm({ username: 'valid_name', email: 'confirm@example.test' });
+      await userEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    }
+
+    it('asks the user to check their email instead of going home', async () => {
+      await signUpWithoutSession();
+
+      expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument();
+      expect(screen.getByText(/confirmation link to confirm@example.test/i)).toBeInTheDocument();
+      expect(screen.queryByText('Home page')).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Back to log in' })).toHaveAttribute('href', '/login');
+    });
+
+    it('does not show the form again, so the account is not created twice', async () => {
+      await signUpWithoutSession();
+
+      await screen.findByRole('heading', { name: 'Check your email' });
+      expect(screen.queryByRole('button', { name: /sign up/i })).not.toBeInTheDocument();
+      expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('tells password managers which field is which', () => {
+    renderRegister();
+
+    expect(screen.getByLabelText(/username/i)).toHaveAttribute('autocomplete', 'username');
+    expect(screen.getByLabelText(/email/i)).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute('autocomplete', 'new-password');
   });
 
   it('turns the database error for a taken username into a friendly message', async () => {

@@ -14,6 +14,8 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const PostPage = lazy(() => import('./pages/PostPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Search = lazy(() => import('./pages/Search'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 function PageFallback() {
   return (
@@ -40,6 +42,8 @@ export default function App() {
               <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
               <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
               <Route path="/post/:id" element={<ProtectedRoute><PostPage /></ProtectedRoute>} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

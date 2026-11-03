@@ -22,6 +22,8 @@ vi.mock('./pages/Register', () => ({ default: () => <div>Register page</div> }))
 vi.mock('./pages/Profile', () => ({ default: () => <div>Profile page</div> }));
 vi.mock('./pages/PostPage', () => ({ default: () => <div>Post page</div> }));
 vi.mock('./pages/Search', () => ({ default: () => <div>Search page</div> }));
+vi.mock('./pages/ForgotPassword', () => ({ default: () => <div>Forgot password page</div> }));
+vi.mock('./pages/ResetPassword', () => ({ default: () => <div>Reset password page</div> }));
 
 let notificationsBroken = false;
 vi.mock('./pages/Notifications', () => ({
@@ -61,6 +63,16 @@ describe('App routing', () => {
     renderWithProviders(<App />, { route: '/does-not-exist', user: null });
 
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
+  });
+
+  it('lets visitors who are not logged in open the password reset pages', async () => {
+    const { unmount } = renderWithProviders(<App />, { route: '/forgot-password', user: null });
+    expect(await screen.findByText('Forgot password page')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<App />, { route: '/reset-password', user: null });
+    expect(await screen.findByText('Reset password page')).toBeInTheDocument();
     expect(screen.queryByText('Login page')).not.toBeInTheDocument();
   });
 
