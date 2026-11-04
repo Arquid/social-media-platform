@@ -85,11 +85,23 @@ describe('PostPage', () => {
     expect(query.maybeSingle).toHaveBeenCalled();
   });
 
+  it('has one first level heading: a hidden "Post" title, or the "not found" message', async () => {
+    mockPosts({ data: post, error: null });
+    const { unmount } = renderPage();
+    await screen.findByText(post.content);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Post' })).toBeInTheDocument();
+    unmount();
+
+    renderPage('abc');
+    expect(screen.getByRole('heading', { level: 1, name: /does not exist or has been deleted/i })).toBeInTheDocument();
+  });
+
   it('shows a spinner while loading', () => {
     mockPosts({ data: post, error: null });
     renderPage();
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
   });
 
   it.each(['abc', '12abc', '-5', '1.5'])('shows "not found" for the invalid id "%s" without asking the database', (id) => {

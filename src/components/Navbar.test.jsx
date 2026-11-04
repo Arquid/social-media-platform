@@ -70,6 +70,17 @@ describe('Navbar', () => {
       expect(notificationQuery.eq).toHaveBeenCalledWith('read', false);
     });
 
+    it('puts the links in a navigation area, and draws no badge when everything is read', async () => {
+      renderWithProviders(<Navbar />);
+
+      const navigation = screen.getByRole('navigation', { name: 'Main' });
+      expect(navigation).toContainElement(screen.getByRole('link', { name: 'Search users' }));
+      expect(navigation).toContainElement(screen.getByRole('button', { name: 'Log out' }));
+      // A hidden "0" in the badge would not match the name of the link (a screen reader problem)
+      await screen.findByRole('link', { name: 'Profile' });
+      expect(screen.getByRole('link', { name: 'Notifications' })).toHaveTextContent('');
+    });
+
     it('has a log out button', () => {
       renderWithProviders(<Navbar />);
 
@@ -90,6 +101,14 @@ describe('Navbar', () => {
   });
 
   describe('for a visitor who is not logged in', () => {
+    it('has the log in link in a navigation area too', () => {
+      renderWithProviders(<Navbar />, { user: null });
+
+      expect(screen.getByRole('navigation', { name: 'Main' })).toContainElement(
+        screen.getByRole('link', { name: 'Log in' })
+      );
+    });
+
     it('only offers logging in', () => {
       renderWithProviders(<Navbar />, { user: null });
 

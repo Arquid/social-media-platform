@@ -73,7 +73,7 @@ describe('Register', () => {
     it('asks the user to check their email instead of going home', async () => {
       await signUpWithoutSession();
 
-      expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { level: 1, name: 'Check your email' })).toBeInTheDocument();
       expect(screen.getByText(/confirmation link to confirm@example.test/i)).toBeInTheDocument();
       expect(screen.queryByText('Home page')).not.toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Back to log in' })).toHaveAttribute('href', '/login');
@@ -86,6 +86,12 @@ describe('Register', () => {
       expect(screen.queryByRole('button', { name: /sign up/i })).not.toBeInTheDocument();
       expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('has the first level heading "Create account"', () => {
+    renderRegister();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Create account' })).toBeInTheDocument();
   });
 
   it('tells password managers which field is which', () => {

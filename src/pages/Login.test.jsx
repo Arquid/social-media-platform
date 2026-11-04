@@ -33,6 +33,12 @@ describe('Login', () => {
     vi.clearAllMocks();
   });
 
+  it('has the first level heading "Log in"', () => {
+    renderLogin();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Log in' })).toBeInTheDocument();
+  });
+
   it('logs in with the given email and password and goes home', async () => {
     supabase.auth.signInWithPassword.mockResolvedValue({ error: null });
     renderLogin();

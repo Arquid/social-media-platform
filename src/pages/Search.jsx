@@ -8,6 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import UserAvatar from '../components/UserAvatar';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { searchProfiles, MIN_SEARCH_LENGTH } from '../lib/search';
+import PageTitle from '../components/PageTitle';
 
 export default function Search() {
   const [params, setParams] = useSearchParams();
@@ -40,6 +41,7 @@ export default function Search() {
 
   return (
     <>
+      <PageTitle>Search users</PageTitle>
       <TextField
         autoFocus
         fullWidth
@@ -65,7 +67,7 @@ export default function Search() {
       )}
 
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress aria-label="Loading" /></Box>
       )}
 
       {searchable && !loading && result.error && (

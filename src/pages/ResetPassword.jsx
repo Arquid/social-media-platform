@@ -36,14 +36,14 @@ export default function ResetPassword() {
   }
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress aria-label="Loading" /></Box>;
   }
 
   // The link signs the user in. Without a session the link was already used, has expired or was never opened
   if (!user) {
     return (
       <Paper sx={{ p: 4 }}>
-        <Typography variant="h5" gutterBottom>Link not valid</Typography>
+        <Typography variant="h5" component="h1" gutterBottom>Link not valid</Typography>
         <Alert severity="warning" sx={{ mb: 2 }}>
           This link is invalid or has expired. Links work once and for a limited time.
         </Alert>
@@ -54,7 +54,7 @@ export default function ResetPassword() {
 
   return (
     <Paper sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>Choose a new password</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>Choose a new password</Typography>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2}>
           {error && <Alert severity="error">{error}</Alert>}

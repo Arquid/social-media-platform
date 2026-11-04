@@ -28,6 +28,14 @@ describe('Home', () => {
     supabase.channel.mockReturnValue(createChannel());
   });
 
+  it('has a first level heading for screen readers', async () => {
+    queuePerTable({ posts_feed: [createQuery({ data: makePosts(1), error: null })] });
+    renderWithProviders(<Home />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    await screen.findByText('Post 1');
+  });
+
   it('shows a post the user just wrote at the top of the feed, with no realtime event', async () => {
     queuePerTable({
       posts_feed: [

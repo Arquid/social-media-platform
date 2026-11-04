@@ -24,7 +24,7 @@ export default function Login() {
 
   return (
     <Paper sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>Log in</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>Log in</Typography>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2}>
           {error && <Alert severity="error">{error}</Alert>}

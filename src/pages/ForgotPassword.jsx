@@ -26,7 +26,7 @@ export default function ForgotPassword() {
   if (sent) {
     return (
       <Paper sx={{ p: 4 }}>
-        <Typography variant="h5" gutterBottom>Check your email</Typography>
+        <Typography variant="h5" component="h1" gutterBottom>Check your email</Typography>
         <Alert severity="success" sx={{ mb: 2 }}>
           If an account exists for {email}, we have sent a link to choose a new password.
         </Alert>
@@ -37,7 +37,7 @@ export default function ForgotPassword() {
 
   return (
     <Paper sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>Forgot your password?</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>Forgot your password?</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Enter your email and we will send you a link to choose a new one.
       </Typography>

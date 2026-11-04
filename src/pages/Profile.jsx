@@ -48,10 +48,10 @@ function ProfileView({ username }) {
   }, [username]);
 
   if (result === undefined) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress aria-label="Loading" /></Box>;
   }
 
-  if (result === null) return <Typography>User not found.</Typography>;
+  if (result === null) return <Typography component="h1">User not found.</Typography>;
 
   const { profile, counts } = result;
   const isOwnProfile = profile.id === user.id;
@@ -63,7 +63,7 @@ function ProfileView({ username }) {
           <UserAvatar username={profile.username} avatarPath={profile.avatar_path} size={72} />
 
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="h5" fontWeight={700} noWrap>
+            <Typography variant="h5" component="h1" fontWeight={700} noWrap>
               {profile.display_name || `@${profile.username}`}
             </Typography>
             {profile.display_name && (

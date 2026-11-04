@@ -47,6 +47,19 @@ describe('Notifications page', () => {
     expect(await screen.findByText('No notifications yet.')).toBeInTheDocument();
   });
 
+  it('has a first level heading for screen readers, with and without notifications', async () => {
+    mockNotifications();
+    const { unmount } = renderPage();
+    await row('@bob liked your post');
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument();
+    unmount();
+
+    mockNotifications([]);
+    renderPage();
+    await screen.findByText('No notifications yet.');
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument();
+  });
+
   it('describes each notification', async () => {
     mockNotifications();
     renderPage();

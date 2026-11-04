@@ -21,6 +21,16 @@ describe('ForgotPassword', () => {
     vi.clearAllMocks();
   });
 
+  it('has a first level heading in both views', async () => {
+    supabase.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
+    renderWithProviders(<ForgotPassword />, { user: null });
+    expect(screen.getByRole('heading', { level: 1, name: 'Forgot your password?' })).toBeInTheDocument();
+
+    await request();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Check your email' })).toBeInTheDocument();
+  });
+
   it('asks the email provider for a link that comes back to the reset page of this app', async () => {
     supabase.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
     renderWithProviders(<ForgotPassword />, { user: null });

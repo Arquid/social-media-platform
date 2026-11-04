@@ -52,7 +52,7 @@ describe('Profile page', () => {
     mockProfile(baseProfile);
     renderProfile();
 
-    expect(await screen.findByRole('heading', { name: 'Alice Smith' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Alice Smith' })).toBeInTheDocument();
     expect(screen.getByText('@alice')).toBeInTheDocument();
     expect(screen.getByText('I like cats')).toBeInTheDocument();
     expect(screen.getByText('followers')).toHaveTextContent('3 followers');
@@ -64,7 +64,7 @@ describe('Profile page', () => {
     mockProfile({ ...baseProfile, display_name: null, bio: '' });
     renderProfile();
 
-    expect(await screen.findByRole('heading', { name: '@alice' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '@alice' })).toBeInTheDocument();
     expect(screen.queryByText('I like cats')).not.toBeInTheDocument();
   });
 
@@ -82,6 +82,13 @@ describe('Profile page', () => {
 
     expect(await screen.findByRole('button', { name: 'Follow' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument();
+  });
+
+  it('shows a spinner with a name while the profile loads', () => {
+    mockProfile(baseProfile);
+    renderProfile();
+
+    expect(screen.getByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
   });
 
   it('shows Edit profile on your own profile and opens and closes the dialog', async () => {
@@ -103,6 +110,6 @@ describe('Profile page', () => {
     supabase.from.mockReturnValueOnce(createQuery({ data: null, error: null }));
     renderProfile('nobody');
 
-    expect(await screen.findByText('User not found.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'User not found.' })).toBeInTheDocument();
   });
 });

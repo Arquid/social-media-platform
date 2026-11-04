@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Box, CircularProgress, Typography, Button, Alert, Stack } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import PostCard from '../components/PostCard';
+import PageTitle from '../components/PageTitle';
 
 async function fetchPost(id) {
   const { data, error } = await supabase
@@ -17,7 +18,7 @@ async function fetchPost(id) {
 function NotFound() {
   return (
     <Stack spacing={2} sx={{ mt: 4, alignItems: 'center' }}>
-      <Typography>This post does not exist or has been deleted.</Typography>
+      <Typography component="h1">This post does not exist or has been deleted.</Typography>
       <Button component={RouterLink} to="/" variant="outlined">Back to the feed</Button>
     </Stack>
   );
@@ -75,7 +76,7 @@ function PostView({ id }) {
   }, [id]);
 
   if (result === undefined) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress aria-label="Loading" /></Box>;
   }
 
   if (result.error) {
@@ -99,5 +100,10 @@ export default function PostPage() {
 
   if (!/^\d+$/.test(id)) return <NotFound />;
 
-  return <PostView key={id} id={id} />;
+  return (
+    <>
+      <PageTitle>Post</PageTitle>
+      <PostView key={id} id={id} />
+    </>
+  );
 }

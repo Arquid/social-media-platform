@@ -54,7 +54,7 @@ export default function Register() {
   if (checkEmail) {
     return (
       <Paper sx={{ p: 4 }}>
-        <Typography variant="h5" gutterBottom>Check your email</Typography>
+        <Typography variant="h5" component="h1" gutterBottom>Check your email</Typography>
         <Alert severity="success" sx={{ mb: 2 }}>
           We sent a confirmation link to {email}. Open it to finish creating your account.
         </Alert>
@@ -65,7 +65,7 @@ export default function Register() {
 
   return (
     <Paper sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>Create account</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>Create account</Typography>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2}>
           {error && <Alert severity="error">{error}</Alert>}

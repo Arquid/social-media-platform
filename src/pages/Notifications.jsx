@@ -4,6 +4,7 @@ import { Paper, List, ListItem, ListItemButton, ListItemText, Typography } from 
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import TimeAgo from '../components/TimeAgo';
+import PageTitle from '../components/PageTitle';
 
 const MESSAGES = {
   like: 'liked your post',
@@ -66,32 +67,40 @@ export default function Notifications() {
   }, [userId, load]);
 
   if (items.length === 0) {
-    return <Typography color="text.secondary" align="center">No notifications yet.</Typography>;
+    return (
+      <>
+        <PageTitle>Notifications</PageTitle>
+        <Typography color="text.secondary" align="center">No notifications yet.</Typography>
+      </>
+    );
   }
 
   return (
-    <Paper>
-      <List>
-        {items.map((n) => (
-          <ListItem
-            key={n.id}
-            disablePadding
-            divider
-            sx={{ bgcolor: n.read ? 'transparent' : 'action.hover' }}
-          >
-            <ListItemButton component={RouterLink} to={destinationOf(n)}>
-              <ListItemText
-                primary={
-                  <>
-                    <b>@{n.actor.username}</b> {MESSAGES[n.type]}
-                  </>
-                }
-                secondary={<TimeAgo date={n.created_at} />}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-    </Paper>
+    <>
+      <PageTitle>Notifications</PageTitle>
+      <Paper>
+        <List>
+          {items.map((n) => (
+            <ListItem
+              key={n.id}
+              disablePadding
+              divider
+              sx={{ bgcolor: n.read ? 'transparent' : 'action.hover' }}
+            >
+              <ListItemButton component={RouterLink} to={destinationOf(n)}>
+                <ListItemText
+                  primary={
+                    <>
+                      <b>@{n.actor.username}</b> {MESSAGES[n.type]}
+                    </>
+                  }
+                  secondary={<TimeAgo date={n.created_at} />}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Paper>
+    </>
   );
 }

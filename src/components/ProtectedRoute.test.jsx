@@ -35,7 +35,8 @@ describe('ProtectedRoute', () => {
 
   it('shows a spinner and no content while auth is loading', () => {
     renderApp({ user: null, loading: true });
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    // The spinner has a name, so a screen reader says what is going on
+    expect(screen.getByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
     expect(screen.queryByText('Login page')).not.toBeInTheDocument();
     expect(screen.queryByText('Secret content')).not.toBeInTheDocument();
   });

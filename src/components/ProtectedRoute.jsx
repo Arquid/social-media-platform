@@ -8,7 +8,7 @@ export default function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Loading" />
       </Box>
     );
   }

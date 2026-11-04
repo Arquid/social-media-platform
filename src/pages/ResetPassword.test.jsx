@@ -37,7 +37,7 @@ describe('ResetPassword', () => {
   it('shows a spinner and no form while the link is still being read', () => {
     renderPage({ loading: true, user: null });
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
     expect(screen.queryByText('Link not valid')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^new password/i)).not.toBeInTheDocument();
   });
@@ -49,6 +49,15 @@ describe('ResetPassword', () => {
     expect(screen.getByText(/invalid or has expired/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute('href', '/forgot-password');
     expect(screen.queryByLabelText(/^new password/i)).not.toBeInTheDocument();
+  });
+
+  it('has a first level heading in both views', () => {
+    const { unmount } = renderPage({ user: null });
+    expect(screen.getByRole('heading', { level: 1, name: 'Link not valid' })).toBeInTheDocument();
+    unmount();
+
+    renderPage();
+    expect(screen.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeInTheDocument();
   });
 
   it('changes the password, tells the user and goes home', async () => {

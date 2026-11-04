@@ -188,6 +188,16 @@ describe('EditProfileDialog', () => {
     expect(storageApi.remove).toHaveBeenCalledWith([profileWithAvatar.avatar_path]);
   });
 
+  it('"Change photo" is a label around the file input, not a button with another control inside', () => {
+    setup();
+
+    const label = screen.getByText('Change photo').closest('label');
+    expect(label).not.toBeNull();
+    expect(label).not.toHaveAttribute('role');
+    expect(label.querySelector('input[type="file"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change photo' })).not.toBeInTheDocument();
+  });
+
   it('disables "Remove photo" when there is no picture to remove', () => {
     setup();
     expect(screen.getByRole('button', { name: 'Remove photo' })).toBeDisabled();

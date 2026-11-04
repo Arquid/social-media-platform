@@ -77,7 +77,7 @@ export default function Navbar() {
         </Typography>
         <ThemeToggle />
         {user ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box component="nav" aria-label="Main" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {username && (
               <Button component={RouterLink} to={`/profile/${username}`}>Profile</Button>
             )}
@@ -89,14 +89,16 @@ export default function Navbar() {
               to="/notifications"
               aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
             >
-              <Badge badgeContent={unread} color="error">
+              <Badge badgeContent={unread || undefined} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
             <Button onClick={handleLogout}>Log out</Button>
           </Box>
         ) : (
-          <Button component={RouterLink} to="/login">Log in</Button>
+          <Box component="nav" aria-label="Main">
+            <Button component={RouterLink} to="/login">Log in</Button>
+          </Box>
         )}
       </Toolbar>
     </AppBar>

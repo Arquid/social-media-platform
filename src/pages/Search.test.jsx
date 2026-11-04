@@ -72,6 +72,12 @@ describe('Search page', () => {
   });
 
   describe('before searching', () => {
+    it('has a first level heading for screen readers', () => {
+      renderPage();
+
+      expect(screen.getByRole('heading', { level: 1, name: 'Search users' })).toBeInTheDocument();
+    });
+
     it('starts with a focused, empty box and a hint', () => {
       renderPage();
 

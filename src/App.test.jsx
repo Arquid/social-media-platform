@@ -38,9 +38,29 @@ describe('App routing', () => {
     notificationsBroken = false;
   });
 
+  // This test has to stay the first one that opens the home page: a lazy page is loaded only once,
+  // so in a later test it is already there and the spinner is never shown.
+  it('shows a spinner with a name while the page is being loaded, inside the main area', async () => {
+    renderWithProviders(<App />, { route: '/' });
+
+    // The first render happens before the lazy page has arrived
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('progressbar', { name: 'Loading' }));
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
   it('shows the matching page for known addresses', async () => {
     renderWithProviders(<App />, { route: '/' });
     expect(await screen.findByText('Home page')).toBeInTheDocument();
+  });
+
+  it('puts the page in the main area of the document, below the navigation', async () => {
+    renderWithProviders(<App />, { route: '/' });
+
+    const main = await screen.findByRole('main');
+    expect(main).toContainElement(await screen.findByText('Home page'));
+    expect(main).not.toContainElement(screen.getByText('Navigation', { exact: false }));
+    expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
   it('shows the 404 page for an unknown address instead of silently going to the feed', async () => {

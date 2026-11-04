@@ -171,7 +171,7 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
   }, [authorId, followingOnly, userId, refreshPost, removePost]);
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+    return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress aria-label="Loading" /></Box>;
   }
 
   if (error) {

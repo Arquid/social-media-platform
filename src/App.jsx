@@ -20,7 +20,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 function PageFallback() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-      <CircularProgress />
+      <CircularProgress aria-label="Loading" />
     </Box>
   );
 }
@@ -31,7 +31,7 @@ export default function App() {
   return (
     <>
       <Navbar />
-      <Container maxWidth="sm" sx={{ py: 3 }}>
+      <Container component="main" maxWidth="sm" sx={{ py: 3 }}>
         <ErrorBoundary key={location.pathname}>
           <Suspense fallback={<PageFallback />}>
             <Routes>

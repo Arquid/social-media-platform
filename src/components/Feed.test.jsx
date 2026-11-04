@@ -22,6 +22,14 @@ describe('Feed', () => {
     supabase.channel.mockReturnValue(createChannel());
   });
 
+  it('shows a spinner with a name while the first page loads', async () => {
+    queueQueries(createQuery({ data: makePosts(1), error: null }));
+    renderWithProviders(<Feed />);
+
+    expect(screen.getByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
+    await screen.findByText('Post 1');
+  });
+
   it('shows the empty state when there are no posts', async () => {
     queueQueries(createQuery({ data: [], error: null }));
     renderWithProviders(<Feed />);

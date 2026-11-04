@@ -110,7 +110,7 @@ export default function EditProfileDialog({ profile, onClose, onSaved }) {
               {profile.username[0].toUpperCase()}
             </Avatar>
             <Stack direction="row" spacing={1}>
-              <Button component="label" variant="outlined" size="small" disabled={saving}>
+              <Button component="label" role={undefined} variant="outlined" size="small" disabled={saving}>
                 Change photo
                 <input hidden type="file" accept={AVATAR_TYPES.join(',')} onChange={handleFileChange} />
               </Button>
