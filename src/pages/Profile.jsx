@@ -7,6 +7,7 @@ import FollowButton from '../components/FollowButton';
 import Feed from '../components/Feed';
 import UserAvatar from '../components/UserAvatar';
 import EditProfileDialog from '../components/EditProfileDialog';
+import DeleteAccountDialog from '../components/DeleteAccountDialog';
 
 async function fetchProfile(username) {
   const { data: profile } = await supabase
@@ -32,6 +33,7 @@ function ProfileView({ username }) {
   const { user } = useAuth();
   const [result, setResult] = useState(undefined);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const reload = useCallback(async () => {
     setResult(await fetchProfile(username));
@@ -84,6 +86,11 @@ function ProfileView({ username }) {
             <FollowButton targetId={profile.id} onChange={reload} />
           )}
         </Box>
+        {isOwnProfile && (
+          <Box sx={{ mt: 2 }}>
+            <Button color="error" size="small" onClick={() => setDeleting(true)}>Delete account</Button>
+          </Box>
+        )}
       </Paper>
 
       {editing && (
@@ -96,7 +103,9 @@ function ProfileView({ username }) {
           }}
         />
       )}
-
+      {deleting && (
+        <DeleteAccountDialog username={profile.username} onClose={() => setDeleting(false)} />
+      )}
       <Feed authorId={profile.id} />
     </>
   );

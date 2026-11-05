@@ -31,3 +31,15 @@ export async function deleteAvatar(path) {
   if (!path) return;
   await supabase.storage.from(AVATAR_BUCKET).remove([path]);
 }
+
+// Removes every picture in the user's own folder (used when the account is deleted)
+export async function deleteAllAvatars(userId) {
+  const bucket = supabase.storage.from(AVATAR_BUCKET);
+
+  const { data: files, error } = await bucket.list(userId);
+  if (error) return { error };
+  if (files.length === 0) return {};
+
+  const { error: removeError } = await bucket.remove(files.map((file) => `${userId}/${file.name}`));
+  return removeError ? { error: removeError } : {};
+}

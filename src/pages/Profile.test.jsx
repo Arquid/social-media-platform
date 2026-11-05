@@ -106,6 +106,26 @@ describe('Profile page', () => {
     await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
+  it('offers account deletion on your own profile only, and opens the confirmation', async () => {
+    mockProfile({ ...baseProfile, id: TEST_USER.id });
+    const { unmount } = renderProfile();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete account' }));
+    const dialog = screen.getByRole('dialog', { name: 'Delete your account?' });
+    expect(dialog).toHaveTextContent(/permanently deletes/i);
+    expect(screen.getByLabelText(/type alice to confirm/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    unmount();
+
+    // Somebody else's profile has no such button
+    mockProfile(baseProfile);
+    renderProfile();
+    await screen.findByRole('heading', { level: 1, name: 'Alice Smith' });
+    expect(screen.queryByRole('button', { name: 'Delete account' })).not.toBeInTheDocument();
+  });
+
   it('shows "User not found." for an unknown username', async () => {
     supabase.from.mockReturnValueOnce(createQuery({ data: null, error: null }));
     renderProfile('nobody');

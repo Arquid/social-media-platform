@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  MAX_AVATAR_BYTES, validateAvatarFile, getAvatarUrl, uploadAvatar, deleteAvatar,
+  MAX_AVATAR_BYTES, validateAvatarFile, getAvatarUrl, uploadAvatar, deleteAvatar, deleteAllAvatars,
 } from './avatars';
 import { supabase } from './supabaseClient';
 
-const storageApi = { upload: vi.fn(), remove: vi.fn(), getPublicUrl: vi.fn() };
+const storageApi = { upload: vi.fn(), remove: vi.fn(), getPublicUrl: vi.fn(), list: vi.fn() };
 
 vi.mock('./supabaseClient', () => ({
   supabase: { storage: { from: vi.fn() } },
@@ -84,5 +84,45 @@ describe('avatar storage helpers', () => {
 
     await deleteAvatar('user-1/old.png');
     expect(storageApi.remove).toHaveBeenCalledWith(['user-1/old.png']);
+  });
+});
+
+describe('deleteAllAvatars (used when an account is deleted)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    supabase.storage.from.mockReturnValue(storageApi);
+  });
+
+  it('removes every file in the folder of the user', async () => {
+    storageApi.list.mockResolvedValue({ data: [{ name: '1.png' }, { name: '2.jpg' }], error: null });
+    storageApi.remove.mockResolvedValue({ error: null });
+
+    const result = await deleteAllAvatars('user-1');
+
+    expect(supabase.storage.from).toHaveBeenCalledWith('avatars');
+    expect(storageApi.list).toHaveBeenCalledWith('user-1');
+    expect(storageApi.remove).toHaveBeenCalledWith(['user-1/1.png', 'user-1/2.jpg']);
+    expect(result).toEqual({});
+  });
+
+  it('does not call remove when there is no picture', async () => {
+    storageApi.list.mockResolvedValue({ data: [], error: null });
+
+    expect(await deleteAllAvatars('user-1')).toEqual({});
+    expect(storageApi.remove).not.toHaveBeenCalled();
+  });
+
+  it('returns the error and removes nothing when the folder cannot be listed', async () => {
+    storageApi.list.mockResolvedValue({ data: null, error: { message: 'storage down' } });
+
+    expect(await deleteAllAvatars('user-1')).toEqual({ error: { message: 'storage down' } });
+    expect(storageApi.remove).not.toHaveBeenCalled();
+  });
+
+  it('returns the error when the files cannot be removed', async () => {
+    storageApi.list.mockResolvedValue({ data: [{ name: '1.png' }], error: null });
+    storageApi.remove.mockResolvedValue({ error: { message: 'no permission' } });
+
+    expect(await deleteAllAvatars('user-1')).toEqual({ error: { message: 'no permission' } });
   });
 });

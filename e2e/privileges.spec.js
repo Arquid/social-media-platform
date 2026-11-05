@@ -91,7 +91,7 @@ test.describe('privileges of the database roles', () => {
     expect(usable('anon')).toEqual([]);
   });
 
-  test('functions: the trigger functions cannot be called by anyone, the search only when logged in', () => {
+  test('functions: the trigger functions cannot be called by anyone, search and account deletion only when logged in', () => {
     const executable = (role) =>
       lines(`
         select p.proname from pg_proc p
@@ -99,7 +99,7 @@ test.describe('privileges of the database roles', () => {
         order by 1;
       `);
 
-    expect(executable('authenticated')).toEqual(['search_profiles']);
+    expect(executable('authenticated')).toEqual(['delete_my_account', 'search_profiles']);
     expect(executable('anon')).toEqual([]);
     expect(executable('public')).toEqual([]);
   });

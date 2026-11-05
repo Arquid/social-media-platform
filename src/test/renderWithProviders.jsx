@@ -10,15 +10,16 @@ export const TEST_USER = { id: 'me-1', email: 'me@example.test' };
 // Renders a component inside the router, toast and auth providers.
 // Pass user: null to simulate a logged-out visitor.
 // Pass withTheme: true to use the real light/dark theme (needed by the theme toggle).
+// Pass signOut to see when the app logs the user out.
 export function renderWithProviders(
   ui,
-  { user = TEST_USER, loading = false, route = '/', withTheme = false } = {}
+  { user = TEST_USER, loading = false, route = '/', withTheme = false, signOut = () => {} } = {}
 ) {
   const auth = {
     session: user ? { user } : null,
     user,
     loading,
-    signOut: () => {},
+    signOut,
   };
 
   const page = (

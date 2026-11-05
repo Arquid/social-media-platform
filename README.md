@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-363_unit_%2B_161_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-377_unit_%2B_169_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -26,6 +26,7 @@
 | **Forgot password** | `/forgot-password` emails a link, `/reset-password` sets a new password. The answer never reveals whether an address has an account, a link works once, and a used or expired link shows "Link not valid" with a way to ask for a new one |
 | **Email confirmation** | Works when switched on: the app shows "Check your email" instead of going home (off by default, see [Deployment](#deployment)) |
 | **Profiles** | Display name, bio (max 160 characters), follower and following counts. Profile picture: JPEG, PNG or WebP, max 2 MB, in a public Storage bucket where users can only change their own folder |
+| **Delete account** | "Delete account" on your own profile asks you to type your username, removes your profile picture from Storage and then deletes the account through the database function `delete_my_account()`. Your profile, posts, comments, likes, follows and notifications go with it, other people's feeds update live, and the username and email can be used again |
 | **Password managers** | Every form tells browsers what each field is (`autocomplete`) |
 
 ### Social
@@ -137,8 +138,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **363** | Mocked Supabase, no backend | `npm test` |
-| End-to-end | **161** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **377** | Mocked Supabase, no backend | `npm test` |
+| End-to-end | **169** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 Tests are also checked by **mutation**: a feature is broken on purpose and the matching test must fail.
@@ -147,6 +148,7 @@ Tests are also checked by **mutation**: a feature is broken on purpose and the m
 <summary><b>What the unit tests cover</b></summary>
 
 - **Posts and feed:** post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting), the feed (pagination cursor, duplicate protection, the Following tab and its view, new posts, the realtime filters: only the posts on the screen, at most 100, one new subscription for a burst of posts, profile page filter, cleanup), the post form and comment section (saving, double submit, errors, the rate limit as a yellow warning that keeps the text), the home page (a new post at the top at once, two in a row, no jump after a tab switch)
+- **Account deletion:** the confirmation (exact username needed), the order (picture, then account), a failing picture removal or database stops everything, locked while working, double clicks, only on your own profile
 - **Pages:** profile, post page, notifications, search (typing pause, one search per pause, spinner, empty and error states, ignoring slow answers, text in the address), 404, login, sign up ("Check your email"), forgot and reset password (the exact return address, same answer for any address, errors, mismatching passwords, double clicks)
 - **App shell:** route protection, routing for unknown addresses, error boundary (catching, "Try again", reset on navigation, outdated version detection), navigation bar, theme toggle and both color schemes (WCAG contrast)
 - **Structure:** one first level heading per page in every state, `main` and `nav` areas, spinner names, `autocomplete` attributes
@@ -169,6 +171,7 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `post-page.spec.js` | Notification links open the post page, live updates, "not found" cases |
 | `notifications.spec.js` | No duplicate notifications for repeated likes or follows (comments still notify), read stays read, users cannot create notifications |
 | `optimistic-like.spec.js` | Slow or broken network: instant update, correct counter, undo with an error message |
+| `account-deletion.spec.js` | The whole path in the browser: a user with a picture, post, comment, like and follows deletes the account. Every row and the picture file are gone, a friend's data stays and the friend's open page updates live, the old login stops working and the name can be used again. Also: exact username needed, a failing picture removal keeps the account, and the function deletes only the caller's account and cannot be called without logging in |
 | `realtime-filters.spec.js` | Reads the real WebSocket messages of the page: likes and comments of posts that are not shown never arrive (feed and post page), a profile page gets only that user's new posts, while the shown posts still update live (like, unlike, comment, your own new post) |
 | `own-post.spec.js` | With realtime blocked completely your own posts still appear at once, in order, exactly once |
 | `following-feed.spec.js` | 1100 followed people (the old request failed at about 400), only followed users' posts, cursor paging, unfollowing, no access without logging in |
@@ -227,6 +230,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 | `missing_indexes` | Six indexes found by a load test (feed, followers, notifications, foreign keys) |
 | `following_feed` | `posts_following_feed` view |
 | `least_privilege` | Removes excess privileges from the API roles, closes new objects by default |
+| `delete_account` | `delete_my_account()` function: a logged-in user deletes their own account (only the caller's, only when logged in) |
 
 > The username constraint is `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles that break the rule, fix them and run `alter table profiles validate constraint profiles_username_format;`.
 
@@ -238,7 +242,7 @@ Run them in filename order. On a fresh local database they are applied automatic
   | Role | Can do |
   |---|---|
   | Visitor (`anon`) | Nothing. The API answers 401, not an empty list |
-  | Logged-in user | Read; add and delete own posts, comments, likes and follows; edit own profile; set the `read` flag of own notifications |
+  | Logged-in user | Read; add and delete own posts, comments, likes and follows; edit own profile; set the `read` flag of own notifications; delete own account (`delete_my_account()`) |
   | Nobody through the API | Edit posts, likes, follows or comments; delete profiles; touch the rate limit log; call trigger functions |
 
 - New tables, sequences and functions are **closed by default** until a migration grants access, and a test fails if a table has no decision.
