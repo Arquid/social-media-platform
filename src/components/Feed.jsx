@@ -3,6 +3,7 @@ import { CircularProgress, Typography, Box, Alert, Button } from '@mui/material'
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PostCard from './PostCard';
 
 const PAGE_SIZE = 20;
@@ -71,6 +72,14 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
     );
   }, []);
 
+  // The posts on the screen, newest first. Realtime is asked for the likes and comments of these
+  // posts only, at most 100 (the most it accepts in one filter), so the feed is not sent the likes of
+  // the whole service. Posts further down than that are updated when the page is loaded again.
+  const watchedIds = posts.slice(0, 100).map((p) => p.id).join(',');
+  // A new post changes the list at once. Wait a moment, so that several posts in a row cause
+  // one new subscription and not one each
+  const watched = useDebouncedValue(watchedIds, 500);
+
   async function loadMore() {
     const last = postsRef.current[postsRef.current.length - 1];
     if (!last) return;
@@ -115,6 +124,30 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
     };
   }, [newPostId, followingOnly]);
 
+  // Likes and comments of the posts on the screen
+  useEffect(() => {
+    if (!watched) return;
+
+    const filter = `post_id=in.(${watched})`;
+    const channel = supabase
+      .channel(`feed-activity-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'likes', filter },
+        (payload) => refreshPost(payload.new.post_id ?? payload.old.post_id)
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comments', filter },
+        (payload) => refreshPost(payload.new.post_id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [watched, refreshPost]);
+
   useEffect(() => {
     let active = true;
 
@@ -140,27 +173,20 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
       setPosts((prev) => (prev.some((p) => p.id === data.id) ? prev : [data, ...prev]));
     }
 
+    // On a profile page only the posts of that user are interesting
+    const postFilter = authorId ? { filter: `user_id=eq.${authorId}` } : {};
+
     const channel = supabase
       .channel(`feed-${Date.now()}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'posts' },
+        { event: 'INSERT', schema: 'public', table: 'posts', ...postFilter },
         (payload) => handleNewPost(payload.new)
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'posts' },
         (payload) => removePost(payload.old.id)
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'likes' },
-        (payload) => refreshPost(payload.new.post_id ?? payload.old.post_id)
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'comments' },
-        (payload) => refreshPost(payload.new.post_id)
       )
       .subscribe();
 

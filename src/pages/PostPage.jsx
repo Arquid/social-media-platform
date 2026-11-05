@@ -48,14 +48,14 @@ function PostView({ id }) {
       .channel(`post-${id}-${Date.now()}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'likes' },
+        { event: '*', schema: 'public', table: 'likes', filter: `post_id=eq.${postId}` },
         (payload) => {
           if ((payload.new.post_id ?? payload.old.post_id) === postId) refresh();
         }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'comments' },
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` },
         (payload) => {
           if (payload.new.post_id === postId) refresh();
         }

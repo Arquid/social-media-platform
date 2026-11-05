@@ -157,6 +157,18 @@ describe('PostPage', () => {
   });
 
   describe('real-time updates', () => {
+    it('asks the server for the likes and comments of this post only', async () => {
+      mockPosts({ data: post, error: null });
+      renderPage();
+      await screen.findByText('A post to open');
+
+      const options = channel.on.mock.calls.map(([, o]) => o);
+      expect(options.find((o) => o.table === 'likes')).toMatchObject({ event: '*', filter: 'post_id=eq.7' });
+      expect(options.find((o) => o.table === 'comments')).toMatchObject({ event: 'INSERT', filter: 'post_id=eq.7' });
+      // A deleted post has only its id in the event, which cannot be filtered
+      expect(options.find((o) => o.table === 'posts' && o.event === 'DELETE').filter).toBeUndefined();
+    });
+
     it('reloads when someone likes or unlikes this post', async () => {
       mockPosts({ data: post, error: null }, { data: { ...post, like_count: 5 }, error: null });
       renderPage();

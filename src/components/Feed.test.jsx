@@ -315,6 +315,194 @@ describe('Feed', () => {
     });
   });
 
+  describe('realtime subscriptions', () => {
+    let channels;
+
+    // Every supabase.channel() call gets its own fake channel, so the tests can see what each one asked for
+    function trackChannels() {
+      channels = [];
+      supabase.channel.mockImplementation((topic) => {
+        const channel = createChannel();
+        channel.topic = topic;
+        channels.push(channel);
+        return channel;
+      });
+    }
+
+    const activityChannels = () => channels.filter((c) => c.topic.startsWith('feed-activity'));
+    const optionsOf = (channel) => channel.on.mock.calls.map(([, options]) => options);
+    const handlerOf = (channel, table, event) =>
+      channel.on.mock.calls.find(([, o]) => o.table === table && o.event === event)[2];
+    // The activity channel is only opened half a second after the posts have arrived
+    const waitForActivity = (count = 1, timeout = 3000) =>
+      waitFor(() => expect(activityChannels()).toHaveLength(count), { timeout });
+
+    beforeEach(() => {
+      trackChannels();
+    });
+
+    it('asks only for the likes and comments of the posts on the screen', async () => {
+      queueQueries(createQuery({ data: makePosts(3), error: null }));
+      renderWithProviders(<Feed />);
+
+      await waitForActivity();
+
+      expect(optionsOf(activityChannels()[0])).toEqual([
+        { event: '*', schema: 'public', table: 'likes', filter: 'post_id=in.(3,2,1)' },
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: 'post_id=in.(3,2,1)' },
+      ]);
+    });
+
+    it('never listens to the likes or comments of the whole service', async () => {
+      queueQueries(createQuery({ data: makePosts(3), error: null }));
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+
+      const options = channels.flatMap(optionsOf);
+      const unfiltered = options.filter((o) => ['likes', 'comments'].includes(o.table) && !o.filter);
+      expect(unfiltered).toEqual([]);
+    });
+
+    it('asks for at most the 100 newest posts, the most a filter accepts', async () => {
+      queueQueries(createQuery({ data: makePosts(101), error: null }));
+      renderWithProviders(<Feed />);
+      // Drawing 101 cards is slow when the whole test suite runs at once: wait longer
+      await waitForActivity(1, 15_000);
+
+      const { filter } = optionsOf(activityChannels()[0])[0];
+      const ids = filter.match(/in\.\((.*)\)/)[1].split(',').map(Number);
+      expect(ids).toHaveLength(100);
+      expect(ids[0]).toBe(101);
+      expect(ids.at(-1)).toBe(2); // the oldest post is left out
+    }, 30_000);
+
+    it('does not open the activity channel while there are no posts', async () => {
+      queueQueries(createQuery({ data: [], error: null }));
+      renderWithProviders(<Feed />);
+      await screen.findByText('No posts yet.');
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      expect(activityChannels()).toHaveLength(0);
+    });
+
+    it('refreshes a post when somebody likes it, and when somebody takes the like back', async () => {
+      queueQueries(
+        createQuery({ data: makePosts(2), error: null }),
+        createQuery({ data: { ...makePosts(1, 2)[0], like_count: 7 }, error: null }),
+        createQuery({ data: { ...makePosts(1, 2)[0], like_count: 6 }, error: null })
+      );
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+      const onLike = handlerOf(activityChannels()[0], 'likes', '*');
+
+      await act(() => onLike({ new: { post_id: 2, user_id: 'x' }, old: {} }));
+      expect(await screen.findByText('7')).toBeInTheDocument();
+
+      // An unlike only has the old row
+      await act(() => onLike({ new: {}, old: { post_id: 2, user_id: 'x' } }));
+      expect(await screen.findByText('6')).toBeInTheDocument();
+    });
+
+    it('refreshes a post when somebody comments on it', async () => {
+      queueQueries(
+        createQuery({ data: makePosts(2), error: null }),
+        createQuery({ data: { ...makePosts(1, 1)[0], comment_count: 9 }, error: null })
+      );
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+
+      await act(() => handlerOf(activityChannels()[0], 'comments', 'INSERT')({ new: { post_id: 1 } }));
+
+      expect(await screen.findByText('9')).toBeInTheDocument();
+    });
+
+    it('subscribes again, once, when a burst of new posts changes the list', async () => {
+      queueQueries(
+        createQuery({ data: makePosts(2), error: null }),
+        createQuery({ data: makePosts(1, 10)[0], error: null }),
+        createQuery({ data: makePosts(1, 11)[0], error: null })
+      );
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+      const first = activityChannels()[0];
+      const feedChannel = channels.find((c) => c.topic.startsWith('feed-') && !c.topic.startsWith('feed-activity'));
+      const onInsert = handlerOf(feedChannel, 'posts', 'INSERT');
+
+      await act(() => onInsert({ new: { id: 10, user_id: 'author-1' } }));
+      await act(() => onInsert({ new: { id: 11, user_id: 'author-1' } }));
+      await screen.findByText('Post 11');
+      await waitForActivity(2);
+
+      expect(activityChannels()).toHaveLength(2); // not three: the burst counted as one change
+      expect(supabase.removeChannel).toHaveBeenCalledWith(first);
+      expect(optionsOf(activityChannels()[1])[0].filter).toBe('post_id=in.(11,10,2,1)');
+    });
+
+    it('keeps the subscription when only the numbers of a post change', async () => {
+      queueQueries(
+        createQuery({ data: makePosts(2), error: null }),
+        createQuery({ data: { ...makePosts(1, 2)[0], like_count: 1 }, error: null })
+      );
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+
+      await act(() => handlerOf(activityChannels()[0], 'likes', '*')({ new: { post_id: 2 }, old: {} }));
+      await screen.findByText('1');
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      expect(activityChannels()).toHaveLength(1);
+      expect(supabase.removeChannel).not.toHaveBeenCalled();
+    });
+
+    it('listens to the new posts of the author only on a profile page', async () => {
+      queueQueries(createQuery({ data: makePosts(1), error: null }));
+      renderWithProviders(<Feed authorId="author-1" />);
+      await screen.findByText('Post 1');
+
+      const postsChannel = channels.find((c) => c.topic.startsWith('feed-') && !c.topic.startsWith('feed-activity'));
+      const insert = optionsOf(postsChannel).find((o) => o.event === 'INSERT');
+      expect(insert).toMatchObject({ table: 'posts', filter: 'user_id=eq.author-1' });
+    });
+
+    it('listens to all new posts on the home page and on the Following tab', async () => {
+      for (const followingOnly of [false, true]) {
+        trackChannels();
+        queueQueries(createQuery({ data: makePosts(1), error: null }));
+        const { unmount } = renderWithProviders(<Feed followingOnly={followingOnly} />);
+        await screen.findByText('Post 1');
+
+        const postsChannel = channels.find((c) => c.topic.startsWith('feed-') && !c.topic.startsWith('feed-activity'));
+        const insert = optionsOf(postsChannel).find((o) => o.event === 'INSERT');
+        expect(insert.filter, `followingOnly=${followingOnly}`).toBeUndefined();
+        unmount();
+      }
+    });
+
+    it('still hears about every deleted post: the event has only the id and cannot be filtered', async () => {
+      queueQueries(createQuery({ data: makePosts(2), error: null }));
+      renderWithProviders(<Feed authorId="author-1" />);
+      await screen.findByText('Post 2');
+
+      const postsChannel = channels.find((c) => c.topic.startsWith('feed-') && !c.topic.startsWith('feed-activity'));
+      const del = optionsOf(postsChannel).find((o) => o.event === 'DELETE');
+      expect(del.filter).toBeUndefined();
+
+      await act(() => handlerOf(postsChannel, 'posts', 'DELETE')({ old: { id: 2 } }));
+      expect(screen.queryByText('Post 2')).not.toBeInTheDocument();
+    });
+
+    it('closes both channels when it goes away', async () => {
+      queueQueries(createQuery({ data: makePosts(2), error: null }));
+      const { unmount } = renderWithProviders(<Feed />);
+      await waitForActivity();
+
+      unmount();
+
+      for (const channel of channels) expect(supabase.removeChannel).toHaveBeenCalledWith(channel);
+      expect(channels).toHaveLength(2);
+    });
+  });
+
   it('unsubscribes from realtime when it unmounts', async () => {
     queueQueries(createQuery({ data: makePosts(1), error: null }));
     const { unmount } = renderWithProviders(<Feed />);

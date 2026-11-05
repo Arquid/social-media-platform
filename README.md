@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-350_unit_%2B_156_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-363_unit_%2B_161_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -36,7 +36,7 @@
 | **Follow** | Follow / unfollow, with a **Following** feed filtered by the database (`posts_following_feed`), so it works for users who follow thousands of people |
 | **Notifications** | Likes, comments and new followers, opened as the post (`/post/:id`) or the follower's profile. Repeating an action (like, unlike, like again) gives **one** notification, enforced by unique indexes |
 | **Search** | `/search` finds people by username or display name (any letter case, part of a word), ranked and limited to 20. The text lives in the address (`/search?q=anna`), so reload, back button and shared links work |
-| **Real time** | Feeds, comments, post pages and the notification badge update live. Only the changed post is fetched, the feed is not reloaded |
+| **Real time** | Feeds, comments, post pages and the notification badge update live. Only the changed post is fetched, the feed is not reloaded. Each page asks Realtime for **only what it shows**: the feed for the likes and comments of its (at most 100) posts, a post page for its own post, a profile page for that user's new posts. Likes on posts that are not on the screen never reach the browser |
 | **Pagination** | Cursor-based: 20 posts at a time with "Load more" |
 | **Relative times** | "just now", "5 minutes ago", "yesterday", then a date. The exact time is in the tooltip and the text keeps up with the clock |
 
@@ -137,8 +137,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **350** | Mocked Supabase, no backend | `npm test` |
-| End-to-end | **156** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **363** | Mocked Supabase, no backend | `npm test` |
+| End-to-end | **161** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 Tests are also checked by **mutation**: a feature is broken on purpose and the matching test must fail.
@@ -146,7 +146,7 @@ Tests are also checked by **mutation**: a feature is broken on purpose and the m
 <details>
 <summary><b>What the unit tests cover</b></summary>
 
-- **Posts and feed:** post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting), the feed (pagination cursor, duplicate protection, the Following tab and its view, new posts, realtime cleanup), the post form and comment section (saving, double submit, errors, the rate limit as a yellow warning that keeps the text), the home page (a new post at the top at once, two in a row, no jump after a tab switch)
+- **Posts and feed:** post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting), the feed (pagination cursor, duplicate protection, the Following tab and its view, new posts, the realtime filters: only the posts on the screen, at most 100, one new subscription for a burst of posts, profile page filter, cleanup), the post form and comment section (saving, double submit, errors, the rate limit as a yellow warning that keeps the text), the home page (a new post at the top at once, two in a row, no jump after a tab switch)
 - **Pages:** profile, post page, notifications, search (typing pause, one search per pause, spinner, empty and error states, ignoring slow answers, text in the address), 404, login, sign up ("Check your email"), forgot and reset password (the exact return address, same answer for any address, errors, mismatching passwords, double clicks)
 - **App shell:** route protection, routing for unknown addresses, error boundary (catching, "Try again", reset on navigation, outdated version detection), navigation bar, theme toggle and both color schemes (WCAG contrast)
 - **Structure:** one first level heading per page in every state, `main` and `nav` areas, spinner names, `autocomplete` attributes
@@ -169,6 +169,7 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `post-page.spec.js` | Notification links open the post page, live updates, "not found" cases |
 | `notifications.spec.js` | No duplicate notifications for repeated likes or follows (comments still notify), read stays read, users cannot create notifications |
 | `optimistic-like.spec.js` | Slow or broken network: instant update, correct counter, undo with an error message |
+| `realtime-filters.spec.js` | Reads the real WebSocket messages of the page: likes and comments of posts that are not shown never arrive (feed and post page), a profile page gets only that user's new posts, while the shown posts still update live (like, unlike, comment, your own new post) |
 | `own-post.spec.js` | With realtime blocked completely your own posts still appear at once, in order, exactly once |
 | `following-feed.spec.js` | 1100 followed people (the old request failed at about 400), only followed users' posts, cursor paging, unfollowing, no access without logging in |
 | `search.spec.js` | The search function: letter case, ranking, limit of 20, trimming, logged-in only, public fields only, special characters as plain text, trigram indexes used |
