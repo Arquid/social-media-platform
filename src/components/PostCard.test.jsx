@@ -163,6 +163,18 @@ describe('PostCard', () => {
     expect(screen.getByRole('button', { name: 'Delete post' })).toBeInTheDocument();
   });
 
+  it('keeps the post and shows a toast when deleting fails', async () => {
+    supabase.from.mockReturnValue(createQuery({ error: { message: 'denied' } }));
+    const onDelete = vi.fn();
+    renderWithProviders(<PostCard post={{ ...basePost, user_id: TEST_USER.id }} onDelete={onDelete} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete post' }));
+
+    expect(await screen.findByText('Could not delete post: denied')).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.getByText('Hello world')).toBeInTheDocument();
+  });
+
   it('deletes an own post and calls onDelete', async () => {
     const query = createQuery({ error: null });
     supabase.from.mockReturnValue(query);

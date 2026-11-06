@@ -27,8 +27,19 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # Stops the build when a package that the app sends to its users has a known high or critical
+      # vulnerability. Development tools are checked as well, but only reported: a new warning about
+      # a test tool should not block a pull request.
+      - name: Check the packages of the app for known vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Check the development tools (report only)
+        run: npm audit
+        continue-on-error: true
+
       - run: npm run lint
-      - run: npm test
+      # Runs the unit tests and fails if they cover less code than the limits in vite.config.js
+      - run: npm run test:coverage
       - run: npm run build
         env:
           # The build only needs placeholders; nothing is sent to Supabase

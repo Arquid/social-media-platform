@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-377_unit_%2B_169_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-415_unit_%2B_169_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -131,6 +131,7 @@ npm run db:reset      # wipe the local database and re-apply migrations
 | `npm run build` / `preview` | Build for production / preview the build |
 | `npm run lint` | ESLint |
 | `npm test` / `test:watch` | Unit and component tests (Vitest) / watch mode |
+| `npm run test:coverage` | Unit tests with a coverage report (`coverage/index.html`); fails below the limits in `vite.config.js` |
 | `npm run test:e2e` | End-to-end tests (Playwright, needs local Supabase) |
 | `npm run db:start` / `db:stop` / `db:status` / `db:reset` | Local Supabase (Docker) |
 
@@ -138,7 +139,7 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **377** | Mocked Supabase, no backend | `npm test` |
+| Unit and component | **415** | Mocked Supabase, no backend. **98.6 %** of the statements and 99.8 % of the lines of `src/` are covered | `npm test` |
 | End-to-end | **169** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
@@ -199,10 +200,12 @@ They create throwaway accounts and use two separate browser sessions to check re
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and every pull request:
 
-1. **Lint, unit tests and build.**
+1. **Vulnerability check, lint, unit tests with coverage, and build.** `npm audit` stops the build if a package that the app ships to users has a known high or critical vulnerability (development tools are reported only). The tests fail if they cover less than 95 % of the statements, 88 % of the branches, 95 % of the functions or 95 % of the lines.
 2. **End-to-end tests**, after step 1: starts a local Supabase in Docker (fresh database, all migrations), creates `.env.localdb`, installs Chromium and runs the tests. A failed test is retried once, because a freshly started machine can be slow. On failure the Playwright report is uploaded as an artifact (kept for 7 days).
 
 No secrets are needed: the tests only use the throwaway database inside the runner.
+
+**Updates.** [Dependabot](.github/dependabot.yml) opens a pull request every Monday: one for all minor and patch updates of the npm packages, one for each major version, and one for the GitHub Actions. Each runs the whole CI, so a bad update shows up there before it is merged. Security fixes come as pull requests of their own at once.
 
 ### Trying real time by hand
 

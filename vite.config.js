@@ -24,5 +24,22 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     include: ['src/**/*.test.{js,jsx}'],
     css: false,
+    // Run with: npm run test:coverage
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/**/*.test.{js,jsx}',
+        'src/test/**',
+        // Only start-up code: creating the Supabase client and mounting the app
+        'src/main.jsx',
+        'src/lib/supabaseClient.js',
+      ],
+      reporter: ['text', 'html'],
+      all: true,
+      // The run fails if the tests cover less than this. Measured: 98.6 / 92.9 / 99.0 / 99.8 %,
+      // so there is room for a little untested code, but not for a whole new feature without tests.
+      thresholds: { statements: 95, branches: 88, functions: 95, lines: 95 },
+    },
   },
 })

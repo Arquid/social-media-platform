@@ -16,7 +16,7 @@ vi.mock('../lib/supabaseClient', () => ({
 
 // The feed and follow button have their own tests; here they are only placeholders
 vi.mock('../components/Feed', () => ({ default: ({ authorId }) => <div>Feed of {authorId}</div> }));
-vi.mock('../components/FollowButton', () => ({ default: () => <button>Follow</button> }));
+vi.mock('../components/FollowButton', () => ({ default: ({ onChange }) => <button onClick={onChange}>Follow</button> }));
 
 const baseProfile = {
   id: 'p-1',
@@ -82,6 +82,36 @@ describe('Profile page', () => {
 
     expect(await screen.findByRole('button', { name: 'Follow' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument();
+  });
+
+  it('counts the followers again after you follow somebody', async () => {
+    mockProfile(baseProfile, { followers: 3, following: 5 });
+    renderProfile();
+    expect(await screen.findByText('followers')).toHaveTextContent('3 followers');
+
+    mockProfile(baseProfile, { followers: 4, following: 5 });
+    await userEvent.click(screen.getByRole('button', { name: 'Follow' }));
+
+    await vi.waitFor(() => expect(screen.getByText('followers')).toHaveTextContent('4 followers'));
+  });
+
+  it('shows the saved profile and closes the dialog after editing', async () => {
+    const own = { ...baseProfile, id: TEST_USER.id };
+    mockProfile(own);
+    renderProfile();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit profile' }));
+
+    // The dialog saves the profile, then the page loads it again
+    const saved = { ...own, display_name: 'Alice Renamed' };
+    supabase.from.mockReturnValueOnce(createQuery({ data: saved, error: null }));
+    mockProfile(saved);
+    const name = screen.getByLabelText('Display name');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Alice Renamed');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Alice Renamed' })).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('shows a spinner with a name while the profile loads', () => {

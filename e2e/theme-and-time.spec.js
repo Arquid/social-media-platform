@@ -138,7 +138,8 @@ test.describe('the app in both themes', () => {
         await page.getByPlaceholder("What's on your mind?").fill('x');
         const postButton = page.getByRole('button', { name: 'Post', exact: true });
         await expect(postButton).toBeEnabled();
-        expect(await contrastOf(postButton)).toBeGreaterThanOrEqual(4.5);
+        // The button fades from gray to its color in a quarter of a second: measure when it has settled
+        await expect.poll(() => contrastOf(postButton), { message: 'contrast of the Post button' }).toBeGreaterThanOrEqual(4.5);
       });
 
       test('the choice made on the login page is still there after signing up', async ({ page }) => {

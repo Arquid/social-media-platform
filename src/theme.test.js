@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { getContrastRatio } from '@mui/material/styles';
+import { getContrastRatio, decomposeColor } from '@mui/material/styles';
 import { theme } from './theme';
 
 // WCAG: normal text needs a contrast of at least 4.5 : 1
 const READABLE = 4.5;
+
+// The text on a filled button can be see-through (MUI uses rgba(0,0,0,0.87) on light colors).
+// getContrastRatio ignores that, so mix the text with the color of the button first.
+function contrastOfText(text, background) {
+  const [r, g, b, alpha = 1] = decomposeColor(text).values;
+  const behind = decomposeColor(background).values;
+  const mixed = [r, g, b].map((channel, i) => Math.round(channel * alpha + behind[i] * (1 - alpha)));
+  return getContrastRatio(`rgb(${mixed.join(', ')})`, background);
+}
 
 describe('theme', () => {
   it('has a light and a dark color scheme', () => {
@@ -40,7 +49,12 @@ describe('theme', () => {
     });
 
     it('is readable: text on a filled accent button', () => {
-      expect(getContrastRatio(palette().primary.contrastText, palette().primary.main)).toBeGreaterThanOrEqual(READABLE);
+      expect(contrastOfText(palette().primary.contrastText, palette().primary.main)).toBeGreaterThanOrEqual(READABLE);
+    });
+
+    it('is readable: text on a filled accent button while the mouse is over it', () => {
+      // "dark" is the color MUI uses for the button under the mouse
+      expect(contrastOfText(palette().primary.contrastText, palette().primary.dark)).toBeGreaterThanOrEqual(READABLE);
     });
   });
 

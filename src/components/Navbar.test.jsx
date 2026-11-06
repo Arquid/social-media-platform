@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
@@ -11,6 +12,11 @@ vi.mock('../lib/supabaseClient', () => ({
 }));
 
 let channel;
+
+// Shows where the app is, so a test can see that the navigation bar sent the user to another page
+function Where() {
+  return <p>at {useLocation().pathname}</p>;
+}
 
 // One answer serves both lookups of the navbar: the username and the unread count
 function mockLookups({ username = 'me', unread = 0 } = {}) {
@@ -79,6 +85,29 @@ describe('Navbar', () => {
       // A hidden "0" in the badge would not match the name of the link (a screen reader problem)
       await screen.findByRole('link', { name: 'Profile' });
       expect(screen.getByRole('link', { name: 'Notifications' })).toHaveTextContent('');
+    });
+
+    it('logs out and goes to the login page', async () => {
+      const signOut = vi.fn().mockResolvedValue();
+      renderWithProviders(<><Navbar /><Where /></>, { signOut });
+      expect(screen.getByText('at /')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+      expect(signOut).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('at /login')).toBeInTheDocument();
+    });
+
+    it('updates the number of unread notifications when the database reports a change', async () => {
+      renderWithProviders(<Navbar />);
+      await screen.findByRole('link', { name: 'Profile' });
+      expect(screen.getByRole('link', { name: 'Notifications' })).toBeInTheDocument();
+
+      mockLookups({ unread: 4 });
+      const [, , onChange] = channel.on.mock.calls[0];
+      await act(async () => onChange({ eventType: 'INSERT' }));
+
+      expect(await screen.findByRole('link', { name: 'Notifications, 4 unread' })).toBeInTheDocument();
     });
 
     it('has a log out button', () => {

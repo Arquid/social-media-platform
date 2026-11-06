@@ -1,0 +1,32 @@
+# Dependabot opens pull requests when a package or a GitHub Action has a newer version.
+# Every pull request runs the CI (lint, tests, build, end-to-end), so a bad update shows up there.
+# Security fixes come as separate pull requests at once, whatever the schedule says.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+    groups:
+      # All small updates arrive in one pull request, so there is one thing to check, not twenty.
+      # Major versions (possible breaking changes) get a pull request of their own.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - '*'

@@ -63,6 +63,22 @@ describe('App routing', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
+  it.each([
+    ['/', 'Home page'],
+    ['/login', 'Login page'],
+    ['/register', 'Register page'],
+    ['/forgot-password', 'Forgot password page'],
+    ['/reset-password', 'Reset password page'],
+    ['/profile/anna', 'Profile page'],
+    ['/notifications', 'Notifications page'],
+    ['/search', 'Search page'],
+    ['/post/7', 'Post page'],
+  ])('opens the page for %s', async (route, text) => {
+    renderWithProviders(<App />, { route });
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+  });
+
   it('shows the 404 page for an unknown address instead of silently going to the feed', async () => {
     renderWithProviders(<App />, { route: '/does-not-exist' });
 
