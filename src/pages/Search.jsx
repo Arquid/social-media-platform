@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Paper, TextField, InputAdornment, List, ListItem, ListItemButton, ListItemAvatar, ListItemText,
-  Typography, CircularProgress, Alert, Box,
+  Typography, CircularProgress, Alert, Box, Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import UserAvatar from '../components/UserAvatar';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useToast } from '../hooks/useToast';
 import { searchProfiles, MIN_SEARCH_LENGTH } from '../lib/search';
 import PageTitle from '../components/PageTitle';
 
 export default function Search() {
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get('q') ?? '');
-  const [result, setResult] = useState({ query: '', users: [], error: '' });
+  const { showToast } = useToast();
+  const [result, setResult] = useState({ query: '', users: [], error: '', hasMore: false });
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const trimmed = text.trim();
   const query = useDebouncedValue(trimmed, 300);
@@ -32,6 +35,28 @@ export default function Search() {
       active = false;
     };
   }, [query]);
+
+  async function loadMore() {
+    const asked = result.query;
+    setLoadingMore(true);
+    const found = await searchProfiles(asked, result.users.length);
+    setLoadingMore(false);
+
+    if (found.error) {
+      showToast(`Could not load more people: ${found.error}`);
+      return;
+    }
+    // The text may have changed while waiting: then these people belong to an old search
+    setResult((prev) => {
+      if (prev.query !== asked) return prev;
+      const seen = new Set(prev.users.map((u) => u.id));
+      return {
+        ...prev,
+        users: [...prev.users, ...found.users.filter((u) => !seen.has(u.id))],
+        hasMore: found.hasMore,
+      };
+    });
+  }
 
   function handleChange(e) {
     const value = e.target.value;
@@ -96,6 +121,14 @@ export default function Search() {
             ))}
           </List>
         </Paper>
+      )}
+
+      {searchable && !loading && result.hasMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Button onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading...' : 'Show more'}
+          </Button>
+        </Box>
       )}
     </>
   );

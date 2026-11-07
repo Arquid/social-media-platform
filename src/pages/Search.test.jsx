@@ -280,6 +280,143 @@ describe('Search page', () => {
     });
   });
 
+  describe('more people', () => {
+    // `count` people, numbered from `from`
+    const people = (count, from = 1) =>
+      Array.from({ length: count }, (_, i) => ({
+        id: `p${from + i}`, username: `user${from + i}`, display_name: `Person ${from + i}`, bio: '', avatar_path: null,
+      }));
+    const shown = () => screen.getAllByRole('listitem').map((item) => item.textContent);
+    const showMore = () => screen.queryByRole('button', { name: 'Show more' });
+
+    it('offers no button when the search found everything', async () => {
+      searchProfiles.mockResolvedValue({ users: people(3), error: '', hasMore: false });
+      renderPage();
+
+      await typeAndWait('per');
+
+      await screen.findByText('Person 1');
+      expect(showMore()).not.toBeInTheDocument();
+    });
+
+    it('asks for the people after the ones shown, and adds them below', async () => {
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: people(5, 21), error: '', hasMore: false });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore());
+
+      expect(await screen.findByText('Person 25')).toBeInTheDocument();
+      expect(searchProfiles).toHaveBeenLastCalledWith('per', 20);
+      expect(shown()).toHaveLength(25);
+      expect(shown()[20]).toContain('Person 21');
+      expect(showMore()).not.toBeInTheDocument();
+    });
+
+    it('keeps the button while there is more', async () => {
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: people(20, 21), error: '', hasMore: true });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore());
+      await screen.findByText('Person 40');
+
+      expect(showMore()).toBeInTheDocument();
+      await user.click(showMore());
+      expect(searchProfiles).toHaveBeenLastCalledWith('per', 40);
+    });
+
+    it('shows nobody twice if the order shifted between the pages', async () => {
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: people(3, 20), error: '', hasMore: false });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore());
+      await screen.findByText('Person 22');
+
+      expect(screen.getAllByText('Person 20')).toHaveLength(1);
+      expect(shown()).toHaveLength(22);
+    });
+
+    it('disables the button and says so while the next people are on their way', async () => {
+      const slow = deferred();
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockReturnValueOnce(slow.promise);
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore());
+      expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+
+      await act(async () => slow.resolve({ users: people(2, 21), error: '', hasMore: false }));
+      expect(await screen.findByText('Person 22')).toBeInTheDocument();
+    });
+
+    it('shows a toast and keeps the people when the next page fails', async () => {
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: [], error: 'network down', hasMore: false });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore());
+
+      expect(await screen.findByText('Could not load more people: network down')).toBeInTheDocument();
+      expect(shown()).toHaveLength(20);
+      expect(showMore()).toBeEnabled();
+    });
+
+    it('drops the answer if the text was changed while waiting for more people', async () => {
+      const slow = deferred();
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockReturnValueOnce(slow.promise)
+        .mockResolvedValueOnce({ users: [bobby], error: '', hasMore: false });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+
+      await user.click(showMore()); // waits for the second page ...
+      await typeAndWait('x'); // ... the text changes and the new search finishes
+      await screen.findByText('Bobby');
+      await act(async () => slow.resolve({ users: people(5, 21), error: '', hasMore: true })); // the late answer
+
+      expect(screen.getByText('Bobby')).toBeInTheDocument();
+      expect(screen.queryByText('Person 21')).not.toBeInTheDocument();
+      expect(showMore()).not.toBeInTheDocument();
+    });
+
+    it('starts again from the first page when the text changes', async () => {
+      searchProfiles
+        .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: people(20, 21), error: '', hasMore: true })
+        .mockResolvedValueOnce({ users: [bobby], error: '', hasMore: false });
+      renderPage();
+      await typeAndWait('per');
+      await screen.findByText('Person 1');
+      await user.click(showMore());
+      await screen.findByText('Person 40');
+
+      await typeAndWait('x');
+
+      expect(await screen.findByText('Bobby')).toBeInTheDocument();
+      expect(searchProfiles).toHaveBeenLastCalledWith('perx'); // from the beginning: no offset
+      expect(shown()).toHaveLength(1);
+    });
+  });
+
   describe('the address', () => {
     it('puts the text into the address while typing', async () => {
       renderPage();

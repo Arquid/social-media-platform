@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Notifications from './Notifications';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
@@ -108,15 +109,15 @@ describe('Notifications page', () => {
     );
   });
 
-  it('loads the newest 50 notifications of the logged-in user', async () => {
+  it('loads the newest 20 notifications of the logged-in user', async () => {
     mockNotifications();
     renderPage();
     await row('@bob liked your post');
 
     expect(supabase.from).toHaveBeenNthCalledWith(1, 'notifications');
     expect(listQuery.eq).toHaveBeenCalledWith('user_id', TEST_USER.id);
-    expect(listQuery.order).toHaveBeenCalledWith('created_at', { ascending: false });
-    expect(listQuery.limit).toHaveBeenCalledWith(50);
+    expect(listQuery.order).toHaveBeenCalledWith('id', { ascending: false });
+    expect(listQuery.limit).toHaveBeenCalledWith(20);
   });
 
   it('marks everything as read after showing the list', async () => {
@@ -129,17 +130,148 @@ describe('Notifications page', () => {
     expect(markReadQuery.eq).toHaveBeenCalledWith('read', false);
   });
 
-  it('reloads the list when a new notification arrives', async () => {
+  it('adds a new notification when it arrives, asking only for newer ones', async () => {
     mockNotifications([notifications[2]]);
     renderPage();
     await row('@bob liked your post');
 
-    supabase.from.mockReturnValueOnce(createQuery({ data: notifications, error: null }));
+    const newer = createQuery({ data: [notifications[0], notifications[1]], error: null });
+    supabase.from.mockReturnValueOnce(newer);
     const [, options, callback] = channel.on.mock.calls[0];
     expect(options).toMatchObject({ event: 'INSERT', table: 'notifications', filter: `user_id=eq.${TEST_USER.id}` });
     await act(async () => callback());
 
     expect(await row('@carol started following you')).toBeInTheDocument();
+    expect(newer.gt).toHaveBeenCalledWith('id', 1);
+    expect(newer.limit).not.toHaveBeenCalled();
+  });
+
+  describe('pages', () => {
+    // newest first, the newest having the id `newest`
+    const many = (count, newest) =>
+      Array.from({ length: count }, (_, i) => ({
+        id: newest - i, type: 'like', post_id: 7, read: true,
+        created_at: '2026-09-30T08:00:00Z', actor: { username: `fan${newest - i}` },
+      }));
+    const names = () => screen.getAllByRole('link').map((link) => link.textContent.split(' ')[0]);
+    const loadMoreButton = () => screen.queryByRole('button', { name: 'Load more' });
+
+    it('offers more only when the first page was full', async () => {
+      mockNotifications(many(19, 19));
+      const { unmount } = renderPage();
+      await screen.findByText('@fan19');
+      expect(loadMoreButton()).not.toBeInTheDocument();
+      unmount();
+
+      mockNotifications(many(20, 20));
+      renderPage();
+      await screen.findByText('@fan20');
+      expect(loadMoreButton()).toBeInTheDocument();
+    });
+
+    it('loads the 20 below the oldest notification on the screen, and hides the button on the last page', async () => {
+      mockNotifications(many(20, 40));
+      renderPage();
+      await screen.findByText('@fan40');
+      const next = createQuery({ data: many(5, 20), error: null });
+      supabase.from.mockReturnValueOnce(next);
+
+      await userEvent.click(loadMoreButton());
+
+      expect(await screen.findByText('@fan16')).toBeInTheDocument();
+      expect(next.lt).toHaveBeenCalledWith('id', 21);
+      expect(next.limit).toHaveBeenCalledWith(20);
+      expect(next.eq).toHaveBeenCalledWith('user_id', TEST_USER.id);
+      expect(names()).toHaveLength(25);
+      expect(names()[24]).toBe('@fan16');
+      expect(loadMoreButton()).not.toBeInTheDocument();
+    });
+
+    it('keeps the button when the next page is full as well', async () => {
+      mockNotifications(many(20, 60));
+      renderPage();
+      await screen.findByText('@fan60');
+      supabase.from.mockReturnValueOnce(createQuery({ data: many(20, 40), error: null }));
+
+      await userEvent.click(loadMoreButton());
+      await screen.findByText('@fan21');
+
+      expect(loadMoreButton()).toBeInTheDocument();
+    });
+
+    it('shows nothing twice when pages overlap', async () => {
+      mockNotifications(many(20, 40));
+      renderPage();
+      await screen.findByText('@fan40');
+      supabase.from.mockReturnValueOnce(createQuery({ data: many(3, 21), error: null }));
+
+      await userEvent.click(loadMoreButton());
+      await screen.findByText('@fan19');
+
+      expect(screen.getAllByText('@fan21')).toHaveLength(1);
+      expect(names()).toHaveLength(22);
+    });
+
+    it('shows a toast and keeps the list when the next page cannot be loaded', async () => {
+      mockNotifications(many(20, 40));
+      renderPage();
+      await screen.findByText('@fan40');
+      supabase.from.mockReturnValueOnce(createQuery({ data: null, error: { message: 'network down' } }));
+
+      await userEvent.click(loadMoreButton());
+
+      expect(await screen.findByText('Could not load more notifications: network down')).toBeInTheDocument();
+      expect(names()).toHaveLength(20);
+      expect(loadMoreButton()).toBeEnabled();
+    });
+
+    it('disables the button and says so while the next page is on its way', async () => {
+      mockNotifications(many(20, 40));
+      renderPage();
+      await screen.findByText('@fan40');
+      let answer;
+      supabase.from.mockReturnValueOnce(createQuery(new Promise((resolve) => { answer = resolve; })));
+
+      await userEvent.click(loadMoreButton());
+      expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+
+      await act(async () => answer({ data: many(2, 20), error: null }));
+      expect(await screen.findByText('@fan19')).toBeInTheDocument();
+    });
+
+    it('puts new notifications above the old ones, also after more have been loaded', async () => {
+      mockNotifications(many(20, 40));
+      renderPage();
+      await screen.findByText('@fan40');
+      supabase.from.mockReturnValueOnce(createQuery({ data: many(5, 20), error: null }));
+      await userEvent.click(loadMoreButton());
+      await screen.findByText('@fan16');
+
+      const newer = createQuery({ data: many(2, 42), error: null });
+      supabase.from.mockReturnValueOnce(newer);
+      const [, , callback] = channel.on.mock.calls[0];
+      await act(async () => callback());
+
+      expect(await screen.findByText('@fan42')).toBeInTheDocument();
+      expect(newer.gt).toHaveBeenCalledWith('id', 40);
+      expect(names().slice(0, 3)).toEqual(['@fan42', '@fan41', '@fan40']);
+      expect(names()).toHaveLength(27);
+    });
+
+    it('starts from the first page when the first notification arrives', async () => {
+      mockNotifications([]);
+      renderPage();
+      await screen.findByText('No notifications yet.');
+      const first = createQuery({ data: many(1, 1), error: null });
+      supabase.from.mockReturnValueOnce(first);
+
+      const [, , callback] = channel.on.mock.calls[0];
+      await act(async () => callback());
+
+      expect(await screen.findByText('@fan1')).toBeInTheDocument();
+      expect(first.gt).not.toHaveBeenCalled();
+      expect(first.limit).toHaveBeenCalledWith(20);
+    });
   });
 
   it('unsubscribes when the page is closed', async () => {

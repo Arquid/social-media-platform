@@ -6,7 +6,7 @@ export function createQuery(result = { data: null, error: null }) {
   const query = {};
   const methods = [
     'select', 'insert', 'update', 'delete', 'upsert',
-    'eq', 'lt', 'in', 'match', 'order', 'limit', 'single', 'maybeSingle',
+    'eq', 'lt', 'gt', 'in', 'match', 'order', 'limit', 'single', 'maybeSingle',
   ];
 
   methods.forEach((method) => {

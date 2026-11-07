@@ -167,3 +167,83 @@ test.describe('search indexes', () => {
     expect(plan).toContain('profiles_display_name_trgm_idx');
   });
 });
+
+test.describe('pages of the search', () => {
+  // Asks for one page: how many, and how many to skip
+  async function page(request, as, text, extra) {
+    const response = await request.post(`${API}/rest/v1/rpc/search_profiles`, {
+      headers: authHeaders(as, { 'Content-Type': 'application/json' }),
+      data: { search_text: text, ...extra },
+    });
+    expect(response.ok(), `page ${JSON.stringify(extra)}`).toBe(true);
+    return names(await response.json());
+  }
+
+  // 55 people whose names all start with the same text
+  async function crowd(request) {
+    const searcher = await person(request, `finder_${tag()}`);
+    const prefix = `pg${tag()}`;
+    createProfilesInBulk(prefix, 55);
+    return { searcher, prefix };
+  }
+
+  test('pages of 20 follow each other without gaps or overlaps, and add up to everybody', async ({ request }) => {
+    const { searcher, prefix } = await crowd(request);
+
+    const first = await page(request, searcher, prefix, { result_limit: 20, result_offset: 0 });
+    const second = await page(request, searcher, prefix, { result_limit: 20, result_offset: 20 });
+    const third = await page(request, searcher, prefix, { result_limit: 20, result_offset: 40 });
+
+    expect([first.length, second.length, third.length]).toEqual([20, 20, 15]);
+    const all = [...first, ...second, ...third];
+    expect(new Set(all).size).toBe(55);
+    // One list in one order: asking for everything at once gives the same names in the same order
+    expect(await page(request, searcher, prefix, { result_limit: 50, result_offset: 0 })).toEqual(all.slice(0, 50));
+    expect(await page(request, searcher, prefix, { result_limit: 50, result_offset: 50 })).toEqual(all.slice(50));
+  });
+
+  test('gives the same order every time, so a page never changes under the reader', async ({ request }) => {
+    const { searcher, prefix } = await crowd(request);
+
+    const once = await page(request, searcher, prefix, { result_limit: 20, result_offset: 20 });
+    const again = await page(request, searcher, prefix, { result_limit: 20, result_offset: 20 });
+
+    expect(again).toEqual(once);
+  });
+
+  test('without a page size and a start the answer is the first 20, as before', async ({ request }) => {
+    const { searcher, prefix } = await crowd(request);
+
+    const plain = await page(request, searcher, prefix, {});
+    const explicit = await page(request, searcher, prefix, { result_limit: 20, result_offset: 0 });
+
+    expect(plain).toHaveLength(20);
+    expect(plain).toEqual(explicit);
+  });
+
+  test('keeps the page size between 1 and 50, and the start from being negative', async ({ request }) => {
+    const { searcher, prefix } = await crowd(request);
+
+    expect(await page(request, searcher, prefix, { result_limit: 1000 })).toHaveLength(50);
+    expect(await page(request, searcher, prefix, { result_limit: 0 })).toHaveLength(1);
+    expect(await page(request, searcher, prefix, { result_limit: -5 })).toHaveLength(1);
+    expect(await page(request, searcher, prefix, { result_offset: -10 })).toEqual(
+      await page(request, searcher, prefix, { result_offset: 0 })
+    );
+  });
+
+  test('an empty page after the last person, and nothing for text that is too short', async ({ request }) => {
+    const { searcher, prefix } = await crowd(request);
+
+    expect(await page(request, searcher, prefix, { result_offset: 55 })).toEqual([]);
+    expect(await page(request, searcher, prefix, { result_offset: 500 })).toEqual([]);
+    expect(await page(request, searcher, 'a', { result_offset: 0 })).toEqual([]);
+  });
+
+  test('the old one-argument function is gone, so the name is not ambiguous', async () => {
+    const versions = runSql(`select pg_get_function_identity_arguments(oid) from pg_proc where proname = 'search_profiles';`)
+      .split('\n').map((line) => line.trim()).filter(Boolean);
+
+    expect(versions).toEqual(['search_text text, result_limit integer, result_offset integer']);
+  });
+});

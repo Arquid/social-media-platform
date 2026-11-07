@@ -37,7 +37,8 @@ test.describe('indexes exist', () => {
       'likes_user_id_post_id_idx',
       'follows_following_id_idx',
       'comments_user_id_idx',
-      'notifications_user_id_created_at_idx',
+      'notifications_user_id_id_idx',
+      'comments_post_id_id_idx',
       'notifications_actor_id_idx',
       'notifications_post_id_idx',
     ]) {
@@ -137,7 +138,7 @@ test.describe('queries use the indexes on large tables', () => {
     expect(plan).not.toContain('Seq Scan on follows');
   });
 
-  test('a user\'s notifications come newest first straight from the index, without sorting', () => {
+  test('a page of a user\'s notifications comes newest first straight from the index, without sorting', () => {
     const plan = planOf({
       setup: `
         insert into notifications (user_id, actor_id, type, created_at)
@@ -149,12 +150,60 @@ test.describe('queries use the indexes on large tables', () => {
           from generate_series(1, 100) g;
       `,
       analyze: ['notifications'],
-      query: `select * from notifications where user_id = '${TARGET_USER}' order by created_at desc limit 50`,
+      // The first page, as the app asks for it
+      query: `select * from notifications where user_id = '${TARGET_USER}' order by id desc limit 20`,
     });
 
-    expect(plan).toContain('notifications_user_id_created_at_idx');
+    expect(plan).toContain('notifications_user_id_id_idx');
     expect(plan).not.toContain('Seq Scan on notifications');
     expect(plan).not.toMatch(/\bSort\b/);
+  });
+
+  test('the next page of notifications (the 20 below an id) is found by the index as well', () => {
+    const plan = planOf({
+      setup: `
+        insert into notifications (user_id, actor_id, type)
+          select ('00000000-0000-0000-0000-' || lpad((g % 500)::text, 12, '0'))::uuid, gen_random_uuid(), 'comment'
+          from generate_series(1, 50000) g;
+        insert into notifications (user_id, actor_id, type)
+          select '${TARGET_USER}', gen_random_uuid(), 'comment' from generate_series(1, 400);
+      `,
+      analyze: ['notifications'],
+      query: `select * from notifications where user_id = '${TARGET_USER}'
+              and id < (select max(id) from notifications) - 20000 order by id desc limit 20`,
+    });
+
+    expect(plan).toContain('notifications_user_id_id_idx');
+    expect(plan).not.toContain('Seq Scan on notifications');
+    expect(plan).not.toMatch(/\bSort\b/);
+  });
+
+  test('the comments of a post come newest first, a page at a time, straight from the index', () => {
+    const POST_AUTHOR = '00000000-0000-0000-0000-00000000f002';
+    const setup = `
+      insert into profiles (id, username) values ('${POST_AUTHOR}', 'idxcomment_author');
+      insert into posts (user_id, content) select '${POST_AUTHOR}', 'a post ' || g from generate_series(1, 200) g;
+      insert into comments (post_id, user_id, content)
+        select p.id, '${POST_AUTHOR}', 'comment ' || g from posts p, generate_series(1, 150) g where p.user_id = '${POST_AUTHOR}';
+    `;
+    const post = `(select min(id) from posts where user_id = '${POST_AUTHOR}')`;
+
+    const first = planOf({
+      setup,
+      analyze: ['posts', 'comments'],
+      query: `select * from comments where post_id = ${post} order by id desc limit 20`,
+    });
+    const next = planOf({
+      setup,
+      analyze: ['posts', 'comments'],
+      query: `select * from comments where post_id = ${post} and id < (select max(id) from comments) - 3000 order by id desc limit 20`,
+    });
+
+    for (const plan of [first, next]) {
+      expect(plan).toContain('comments_post_id_id_idx');
+      expect(plan).not.toContain('Seq Scan on comments');
+      expect(plan).not.toMatch(/\bSort\b/);
+    }
   });
 
   test('the unread notification counter of the navigation bar uses an index', () => {
@@ -170,7 +219,7 @@ test.describe('queries use the indexes on large tables', () => {
       query: `select count(*) from notifications where user_id = '${TARGET_USER}' and read = false`,
     });
 
-    expect(plan).toContain('notifications_user_id_created_at_idx');
+    expect(plan).toContain('notifications_user_id_id_idx');
     expect(plan).not.toContain('Seq Scan on notifications');
   });
 });

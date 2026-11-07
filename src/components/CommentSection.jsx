@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Link, Stack } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
@@ -6,30 +6,74 @@ import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 
-async function fetchComments(postId) {
-  const { data } = await supabase
+const PAGE_SIZE = 20;
+
+// Newest first. beforeId: the page below that comment. afterId: everything that came after it
+async function fetchComments(postId, { beforeId, afterId } = {}) {
+  let query = supabase
     .from('comments')
     .select('*, profiles!comments_user_id_fkey(username)')
     .eq('post_id', postId)
-    .order('created_at', { ascending: true });
-  return data ?? [];
+    .order('id', { ascending: false });
+
+  if (afterId) query = query.gt('id', afterId);
+  else if (beforeId) query = query.lt('id', beforeId).limit(PAGE_SIZE);
+  else query = query.limit(PAGE_SIZE);
+
+  const { data, error } = await query;
+  return { data: data ?? [], error };
 }
 
 export default function CommentSection({ postId }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [comments, setComments] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [text, setText] = useState('');
 
-  const load = useCallback(async () => {
-    setComments(await fetchComments(postId));
+  // Lets the handlers see what is on the screen without subscribing again
+  const commentsRef = useRef([]);
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
+
+  // New comments (yours or somebody else's) go to the top
+  const loadNewer = useCallback(async () => {
+    const newest = commentsRef.current[0];
+    const { data } = await fetchComments(postId, { afterId: newest?.id });
+    setComments((prev) => {
+      const seen = new Set(prev.map((c) => c.id));
+      return [...data.filter((c) => !seen.has(c.id)), ...prev];
+    });
   }, [postId]);
+
+  async function loadMore() {
+    const oldest = commentsRef.current.at(-1);
+    if (!oldest) return;
+
+    setLoadingMore(true);
+    const { data, error } = await fetchComments(postId, { beforeId: oldest.id });
+    setLoadingMore(false);
+
+    if (error) {
+      showToast(`Could not load more comments: ${error.message}`);
+      return;
+    }
+    setComments((prev) => {
+      const seen = new Set(prev.map((c) => c.id));
+      return [...prev, ...data.filter((c) => !seen.has(c.id))];
+    });
+    setHasMore(data.length === PAGE_SIZE);
+  }
 
   useEffect(() => {
     let active = true;
 
-    fetchComments(postId).then((data) => {
-      if (active) setComments(data);
+    fetchComments(postId).then(({ data }) => {
+      if (!active) return;
+      setComments(data);
+      setHasMore(data.length === PAGE_SIZE);
     });
 
     const channel = supabase
@@ -37,7 +81,7 @@ export default function CommentSection({ postId }) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` },
-        load
+        loadNewer
       )
       .subscribe();
 
@@ -45,7 +89,7 @@ export default function CommentSection({ postId }) {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [load, postId]);
+  }, [postId, loadNewer]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -62,22 +106,12 @@ export default function CommentSection({ postId }) {
     }
 
     setText('');
-    load();
+    loadNewer();
   }
 
   return (
     <Box sx={{ mt: 1 }}>
-      <Stack spacing={1} sx={{ mb: 1 }}>
-        {comments.map((c) => (
-          <Typography key={c.id} variant="body2">
-            <Link component={RouterLink} to={`/profile/${c.profiles.username}`} underline="hover" fontWeight={600}>
-              @{c.profiles.username}
-            </Link>{' '}
-            {c.content}
-          </Typography>
-        ))}
-      </Stack>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8 }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <TextField
           size="small"
           fullWidth
@@ -88,6 +122,21 @@ export default function CommentSection({ postId }) {
         />
         <Button type="submit" disabled={!text.trim()}>Send</Button>
       </form>
+      <Stack spacing={1}>
+        {comments.map((c) => (
+          <Typography key={c.id} variant="body2">
+            <Link component={RouterLink} to={`/profile/${c.profiles.username}`} underline="hover" fontWeight={600}>
+              @{c.profiles.username}
+            </Link>{' '}
+            {c.content}
+          </Typography>
+        ))}
+      </Stack>
+      {hasMore && (
+        <Button size="small" onClick={loadMore} disabled={loadingMore} sx={{ mt: 1 }}>
+          {loadingMore ? 'Loading...' : 'Load more comments'}
+        </Button>
+      )}
     </Box>
   );
 }
