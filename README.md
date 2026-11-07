@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-415_unit_%2B_169_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-444_unit_%2B_185_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -38,7 +38,7 @@
 | **Notifications** | Likes, comments and new followers, opened as the post (`/post/:id`) or the follower's profile. Repeating an action (like, unlike, like again) gives **one** notification, enforced by unique indexes |
 | **Search** | `/search` finds people by username or display name (any letter case, part of a word), ranked and limited to 20. The text lives in the address (`/search?q=anna`), so reload, back button and shared links work |
 | **Real time** | Feeds, comments, post pages and the notification badge update live. Only the changed post is fetched, the feed is not reloaded. Each page asks Realtime for **only what it shows**: the feed for the likes and comments of its (at most 100) posts, a post page for its own post, a profile page for that user's new posts. Likes on posts that are not on the screen never reach the browser |
-| **Pagination** | Cursor-based: 20 posts at a time with "Load more" |
+| **Pagination** | Everything long comes 20 at a time with a button for more: the feeds, **notifications** and **comments** ("Load more", paged by id so nothing is skipped or shown twice, newest first, new ones go on top) and the **search** ("Show more", the database function takes a page size and a start). A page costs the same however long the list is, because each list has an index made for it |
 | **Relative times** | "just now", "5 minutes ago", "yesterday", then a date. The exact time is in the tooltip and the text keeps up with the clock |
 
 ### Quality
@@ -139,8 +139,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **415** | Mocked Supabase, no backend. **98.6 %** of the statements and 99.8 % of the lines of `src/` are covered | `npm test` |
-| End-to-end | **169** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **444** | Mocked Supabase, no backend. **98.4 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
+| End-to-end | **185** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 Tests are also checked by **mutation**: a feature is broken on purpose and the matching test must fail.
@@ -173,6 +173,7 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `notifications.spec.js` | No duplicate notifications for repeated likes or follows (comments still notify), read stays read, users cannot create notifications |
 | `optimistic-like.spec.js` | Slow or broken network: instant update, correct counter, undo with an error message |
 | `account-deletion.spec.js` | The whole path in the browser: a user with a picture, post, comment, like and follows deletes the account. Every row and the picture file are gone, a friend's data stays and the friend's open page updates live, the old login stops working and the name can be used again. Also: exact username needed, a failing picture removal keeps the account, and the function deletes only the caller's account and cannot be called without logging in |
+| `pagination.spec.js` | Lists longer than a page in the browser: 45 notifications, 45 comments (also under a post in the feed) and 45 search results, 20 at a time, newest first, nobody twice, the button gone on the last page, new notifications and comments on top (also your own), the search starting over when the text changes |
 | `realtime-filters.spec.js` | Reads the real WebSocket messages of the page: likes and comments of posts that are not shown never arrive (feed and post page), a profile page gets only that user's new posts, while the shown posts still update live (like, unlike, comment, your own new post) |
 | `own-post.spec.js` | With realtime blocked completely your own posts still appear at once, in order, exactly once |
 | `following-feed.spec.js` | 1100 followed people (the old request failed at about 400), only followed users' posts, cursor paging, unfollowing, no access without logging in |
@@ -234,6 +235,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 | `following_feed` | `posts_following_feed` view |
 | `least_privilege` | Removes excess privileges from the API roles, closes new objects by default |
 | `delete_account` | `delete_my_account()` function: a logged-in user deletes their own account (only the caller's, only when logged in) |
+| `pagination` | Indexes for paging notifications and comments by id (they replace the older ones), and `search_profiles` with a page size and a start |
 
 > The username constraint is `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles that break the rule, fix them and run `alter table profiles validate constraint profiles_username_format;`.
 
