@@ -169,6 +169,19 @@ describe('PostPage', () => {
       expect(options.find((o) => o.table === 'posts' && o.event === 'DELETE').filter).toBeUndefined();
     });
 
+    it('listens for edits of this post only, and shows the new text', async () => {
+      mockPosts({ data: post, error: null }, { data: { ...post, content: 'A better post', edited_at: '2026-10-01T10:00:00Z' }, error: null });
+      renderPage();
+      await screen.findByText('A post to open');
+      const update = channel.on.mock.calls.map(([, o]) => o).find((o) => o.table === 'posts' && o.event === 'UPDATE');
+      expect(update).toMatchObject({ filter: 'id=eq.7' });
+
+      await emit('posts', 'UPDATE', { new: { id: 7 } });
+
+      expect(await screen.findByText('A better post')).toBeInTheDocument();
+      expect(screen.getByText(/· edited/)).toBeInTheDocument();
+    });
+
     it('reloads when someone likes or unlikes this post', async () => {
       mockPosts({ data: post, error: null }, { data: { ...post, like_count: 5 }, error: null });
       renderPage();

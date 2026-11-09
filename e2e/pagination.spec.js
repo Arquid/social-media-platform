@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { createUser, createProfilesInBulk, runSql, API, authHeaders } from './api';
-import { newUser, signUp, createPost, postCard } from './helpers';
+import { newUser, signUp, createPost, postCard, listenToFrames, waitForSubscription } from './helpers';
 
 // Notifications, comments and search results come 20 at a time. These tests make lists that are
 // longer than a page and click through them in a real browser.
@@ -41,26 +41,6 @@ function writeNotifications(userId, postId, prefix, count) {
 }
 
 const texts = (locator) => locator.allTextContents();
-
-// Collects what the page receives over its realtime connections
-function listenToFrames(page) {
-  const frames = [];
-  page.on('websocket', (socket) => {
-    socket.on('framereceived', (frame) => frames.push(String(frame.payload)));
-  });
-  return frames;
-}
-
-// Waits until Realtime has confirmed the subscription of a channel (its name contains `part`),
-// and a moment more: a change made just after the confirmation is not always reported
-async function waitForSubscription(page, frames, part) {
-  await expect
-    .poll(() => frames.some((f) => f.includes(part) && f.includes('"status":"ok"')), {
-      message: `realtime subscription ${part}`,
-    })
-    .toBe(true);
-  await page.waitForTimeout(1500);
-}
 
 test.describe('notifications', () => {
   test('come 20 at a time, newest first, and new ones go on top', async ({ page, request }) => {

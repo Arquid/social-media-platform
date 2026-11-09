@@ -66,6 +66,17 @@ test.describe('privileges of the database roles', () => {
     expect(columns).toEqual(['read']);
   });
 
+  test('a user can change only the "content" column of a post', () => {
+    const columns = lines(`
+      select attname from pg_attribute
+      where attrelid = 'public.posts'::regclass and attnum > 0 and not attisdropped
+        and has_column_privilege('authenticated', attrelid, attname, 'UPDATE')
+      order by 1;
+    `);
+
+    expect(columns).toEqual(['content']);
+  });
+
   test('a visitor who is not logged in has no privileges at all, not even on single columns', () => {
     expect(tablePrivilegesOf('anon')).toEqual([]);
 
@@ -167,16 +178,30 @@ test.describe('what the API says to a user who does something that is not allowe
     }
   });
 
-  test('a post cannot be edited by its own author, the API has no way to do it', async ({ request }) => {
-    const { author, post } = await authorWithNotification(request);
+  test('the author of a post can change its text, but nothing else about it', async ({ request }) => {
+    const { author, fan, post } = await authorWithNotification(request);
 
     const edit = await request.patch(`${API}/rest/v1/posts?id=eq.${post.id}`, {
       headers: authHeaders(author, json),
       data: { content: 'edited' },
     });
+    expect(edit.status()).toBe(200);
 
-    expect(edit.status()).toBe(403);
-    expect((await edit.json()).code).toBe('42501');
+    for (const change of [{ user_id: fan.id }, { created_at: '2000-01-01T00:00:00Z' }, { edited_at: null }]) {
+      const refused = await request.patch(`${API}/rest/v1/posts?id=eq.${post.id}`, {
+        headers: authHeaders(author, json),
+        data: change,
+      });
+      expect(refused.status(), JSON.stringify(change)).toBe(403);
+      expect((await refused.json()).code).toBe('42501');
+    }
+
+    // The id cannot be changed at all (it is generated), whoever asks
+    const newId = await request.patch(`${API}/rest/v1/posts?id=eq.${post.id}`, {
+      headers: authHeaders(author, json),
+      data: { id: post.id + 1000 },
+    });
+    expect(newId.ok()).toBe(false);
   });
 
   test('likes, follows and comments cannot be changed afterwards, only added and removed', async ({ request }) => {

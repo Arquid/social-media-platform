@@ -141,6 +141,12 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
         { event: 'INSERT', schema: 'public', table: 'comments', filter },
         (payload) => refreshPost(payload.new.post_id)
       )
+      // The author edited one of these posts: load it again (new text and the "edited" mark)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'posts', filter: `id=in.(${watched})` },
+        (payload) => refreshPost(payload.new.id)
+      )
       .subscribe();
 
     return () => {

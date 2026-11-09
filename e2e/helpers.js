@@ -43,3 +43,23 @@ export function postCard(page, text) {
 export function bell(page) {
   return page.locator('a[href="/notifications"]');
 }
+
+// Collects what the page receives over its realtime connections
+export function listenToFrames(page) {
+  const frames = [];
+  page.on('websocket', (socket) => {
+    socket.on('framereceived', (frame) => frames.push(String(frame.payload)));
+  });
+  return frames;
+}
+
+// Waits until Realtime has confirmed the subscription of a channel (its name contains `part`),
+// and a moment more: a change made just after the confirmation is not always reported
+export async function waitForSubscription(page, frames, part) {
+  await expect
+    .poll(() => frames.some((f) => f.includes(part) && f.includes('"status":"ok"')), {
+      message: `realtime subscription ${part}`,
+    })
+    .toBe(true);
+  await page.waitForTimeout(1500);
+}

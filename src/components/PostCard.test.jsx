@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PostCard from './PostCard';
 import { supabase } from '../lib/supabaseClient';
@@ -17,9 +17,13 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }));
 
-// The comment section has its own tests; here it is only a placeholder
+// The comment section has its own tests; here it is only a placeholder that remembers what it was given
+const { commentSectionProps } = vi.hoisted(() => ({ commentSectionProps: [] }));
 vi.mock('./CommentSection', () => ({
-  default: ({ postId }) => <div>Comments of post {postId}</div>,
+  default: (props) => {
+    commentSectionProps.push(props);
+    return <div>Comments of post {props.postId}</div>;
+  },
 }));
 
 const basePost = {
@@ -152,6 +156,171 @@ describe('PostCard', () => {
 
     expect(await screen.findByText('Could not update like: boom')).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  describe('editing', () => {
+    const mine = { ...basePost, user_id: TEST_USER.id };
+    const editButton = () => screen.queryByRole('button', { name: 'Edit post' });
+    const box = () => screen.getByRole('textbox', { name: 'Edit post text' });
+    const saveButton = () => screen.getByRole('button', { name: 'Save' });
+
+    it('offers an edit button on your own posts only', () => {
+      const { unmount } = renderWithProviders(<PostCard post={basePost} />);
+      expect(editButton()).not.toBeInTheDocument();
+      unmount();
+
+      renderWithProviders(<PostCard post={mine} />);
+      expect(editButton()).toBeInTheDocument();
+    });
+
+    it('marks a post that has been edited, with the time of the edit as a tooltip', () => {
+      const editedAt = '2026-10-01T10:30:00Z';
+      renderWithProviders(<PostCard post={{ ...basePost, edited_at: editedAt }} />);
+
+      const mark = screen.getByText(/· edited/);
+      expect(mark).toHaveAttribute('title', `Edited ${new Date(editedAt).toLocaleString()}`);
+    });
+
+    it('does not say "edited" about a post that was never edited', () => {
+      renderWithProviders(<PostCard post={{ ...basePost, edited_at: null }} />);
+
+      expect(screen.queryByText(/edited/)).not.toBeInTheDocument();
+    });
+
+    it('opens a box with the current text, and hides the edit button while editing', async () => {
+      renderWithProviders(<PostCard post={mine} />);
+
+      await userEvent.click(editButton());
+
+      expect(box()).toHaveValue('Hello world');
+      expect(box()).toHaveFocus();
+      expect(box()).toHaveAttribute('maxlength', '500');
+      expect(editButton()).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete post' })).toBeInTheDocument();
+    });
+
+    it('saves the trimmed text, closes the box and asks the page to load the post again', async () => {
+      const query = createQuery({ error: null });
+      supabase.from.mockReturnValue(query);
+      const onChange = vi.fn();
+      renderWithProviders(<PostCard post={mine} onChange={onChange} />);
+      await userEvent.click(editButton());
+
+      await userEvent.clear(box());
+      await userEvent.type(box(), '  a better text  ');
+      await userEvent.click(saveButton());
+
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(7));
+      expect(supabase.from).toHaveBeenCalledWith('posts');
+      expect(query.update).toHaveBeenCalledWith({ content: 'a better text' });
+      expect(query.eq).toHaveBeenCalledWith('id', 7);
+      expect(screen.queryByRole('textbox', { name: 'Edit post text' })).not.toBeInTheDocument();
+      expect(editButton()).toBeInTheDocument();
+    });
+
+    it('does not touch the database when the text is the same', async () => {
+      const onChange = vi.fn();
+      renderWithProviders(<PostCard post={mine} onChange={onChange} />);
+      await userEvent.click(editButton());
+
+      await userEvent.type(box(), ' '); // only a space more: the same text after trimming
+      await userEvent.click(saveButton());
+
+      expect(supabase.from).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.queryByRole('textbox', { name: 'Edit post text' })).not.toBeInTheDocument();
+    });
+
+    it('cannot save an empty text', async () => {
+      renderWithProviders(<PostCard post={mine} />);
+      await userEvent.click(editButton());
+
+      await userEvent.clear(box());
+      expect(saveButton()).toBeDisabled();
+      await userEvent.type(box(), '   ');
+      expect(saveButton()).toBeDisabled();
+
+      await userEvent.keyboard('{Enter}');
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
+
+    it('Cancel throws the changes away and shows the old text', async () => {
+      renderWithProviders(<PostCard post={mine} />);
+      await userEvent.click(editButton());
+      await userEvent.clear(box());
+      await userEvent.type(box(), 'something else');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.getByText('Hello world')).toBeInTheDocument();
+      expect(screen.queryByText('something else')).not.toBeInTheDocument();
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
+
+    it('starts from the current text again when it is opened a second time', async () => {
+      renderWithProviders(<PostCard post={mine} />);
+      await userEvent.click(editButton());
+      await userEvent.type(box(), ' more');
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      await userEvent.click(editButton());
+
+      expect(box()).toHaveValue('Hello world');
+    });
+
+    it('keeps the box open with the text and shows a toast when saving fails', async () => {
+      supabase.from.mockReturnValue(createQuery({ error: { message: 'not allowed' } }));
+      const onChange = vi.fn();
+      renderWithProviders(<PostCard post={mine} onChange={onChange} />);
+      await userEvent.click(editButton());
+      await userEvent.clear(box());
+      await userEvent.type(box(), 'my new text');
+
+      await userEvent.click(saveButton());
+
+      expect(await screen.findByText('Could not save the post: not allowed')).toBeInTheDocument();
+      expect(box()).toHaveValue('my new text');
+      expect(saveButton()).toBeEnabled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('is locked while saving, so a double click sends one request', async () => {
+      let finish;
+      const query = createQuery(new Promise((resolve) => { finish = resolve; }));
+      supabase.from.mockReturnValue(query);
+      renderWithProviders(<PostCard post={mine} onChange={vi.fn()} />);
+      await userEvent.click(editButton());
+      await userEvent.type(box(), '!');
+
+      await userEvent.click(saveButton());
+      expect(saveButton()).toBeDisabled();
+      expect(box()).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+
+      await act(async () => finish({ error: null }));
+      expect(supabase.from).toHaveBeenCalledTimes(1);
+    });
+
+    it('works without an onChange function', async () => {
+      supabase.from.mockReturnValue(createQuery({ error: null }));
+      renderWithProviders(<PostCard post={mine} />);
+      await userEvent.click(editButton());
+      await userEvent.type(box(), '!');
+
+      await userEvent.click(saveButton());
+
+      await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Edit post text' })).not.toBeInTheDocument());
+    });
+
+    it('lets the comment section tell the page when a comment is deleted (the count changes)', async () => {
+      const onChange = vi.fn();
+      renderWithProviders(<PostCard post={mine} onChange={onChange} defaultShowComments />);
+
+      commentSectionProps.at(-1).onChange();
+
+      expect(onChange).toHaveBeenCalledWith(7);
+    });
   });
 
   it('only shows the delete button on your own posts', () => {

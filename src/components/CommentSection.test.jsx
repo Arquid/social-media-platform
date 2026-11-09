@@ -30,14 +30,17 @@ const makeComments = (count, newest) =>
 let channel;
 let listQuery;
 let insertQuery;
+let deleteQuery;
 
-// supabase.from('comments') is used both for loading and for saving
-function mockTable({ comments = existing, insertResult = { error: null } } = {}) {
+// supabase.from('comments') is used for loading, saving and deleting
+function mockTable({ comments = existing, insertResult = { error: null }, deleteResult = { error: null } } = {}) {
   listQuery = createQuery({ data: comments, error: null });
   insertQuery = createQuery(insertResult);
+  deleteQuery = createQuery(deleteResult);
   supabase.from.mockReturnValue({
     select: (...args) => listQuery.select(...args),
     insert: (...args) => insertQuery.insert(...args),
+    delete: (...args) => deleteQuery.delete(...args),
   });
 }
 
@@ -60,6 +63,8 @@ describe('CommentSection', () => {
     expect(screen.getByText('Nice post')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '@alice' })).toHaveAttribute('href', '/profile/alice');
     expect(screen.getByRole('link', { name: '@bob' })).toHaveAttribute('href', '/profile/bob');
+    // Inside a sentence a link must not rely on color alone: it is underlined
+    expect(screen.getByRole('link', { name: '@alice' }).className).toMatch(/underlineAlways/);
     expect(listQuery.eq).toHaveBeenCalledWith('post_id', 7);
     // The newest 20, by id (the id grows with time and is unique, so pages never overlap)
     expect(listQuery.order).toHaveBeenCalledWith('id', { ascending: false });
@@ -133,6 +138,94 @@ describe('CommentSection', () => {
     const toast = await screen.findByText('Could not add comment: not allowed');
     expect(severityOf(toast.closest('[role="alert"]'))).toBe('Error');
     expect(input()).toHaveValue('my comment');
+  });
+
+  describe('deleting a comment', () => {
+    // The first comment of `existing` ("Nice post") is written by the logged-in user
+    const mine = [{ ...existing[0], user_id: TEST_USER.id }, existing[1]];
+    const deleteButtons = () => screen.queryAllByRole('button', { name: 'Delete comment' });
+
+    it('offers a delete button on the own comments only', async () => {
+      mockTable({ comments: mine });
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('Nice post');
+
+      expect(deleteButtons()).toHaveLength(1);
+      // The button is on the row of "Nice post", not on somebody else's
+      expect(screen.getByText('Nice post').parentElement).toContainElement(deleteButtons()[0]);
+    });
+
+    it('has no delete button when all the comments are somebody else\'s', async () => {
+      mockTable();
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('Nice post');
+
+      expect(deleteButtons()).toHaveLength(0);
+    });
+
+    it('deletes exactly that comment, removes it from the list and tells the post card', async () => {
+      mockTable({ comments: mine });
+      const onChange = vi.fn();
+      renderWithProviders(<CommentSection postId={7} onChange={onChange} />);
+      await screen.findByText('Nice post');
+
+      await userEvent.click(deleteButtons()[0]);
+
+      await waitFor(() => expect(screen.queryByText('Nice post')).not.toBeInTheDocument());
+      expect(deleteQuery.delete).toHaveBeenCalled();
+      expect(deleteQuery.eq).toHaveBeenCalledWith('id', 2);
+      expect(screen.getByText('First!')).toBeInTheDocument(); // the others stay
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('works without an onChange function', async () => {
+      mockTable({ comments: mine });
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('Nice post');
+
+      await userEvent.click(deleteButtons()[0]);
+
+      await waitFor(() => expect(screen.queryByText('Nice post')).not.toBeInTheDocument());
+    });
+
+    it('keeps the comment and shows a toast when deleting fails', async () => {
+      mockTable({ comments: mine, deleteResult: { error: { message: 'not allowed' } } });
+      const onChange = vi.fn();
+      renderWithProviders(<CommentSection postId={7} onChange={onChange} />);
+      await screen.findByText('Nice post');
+
+      await userEvent.click(deleteButtons()[0]);
+
+      expect(await screen.findByText('Could not delete comment: not allowed')).toBeInTheDocument();
+      expect(screen.getByText('Nice post')).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('removes a comment that somebody else deletes while it is on the screen', async () => {
+      mockTable();
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('Nice post');
+      const deleted = channel.on.mock.calls.find(([, o]) => o.event === 'DELETE');
+      expect(deleted[1]).toMatchObject({ table: 'comments' });
+      expect(deleted[1].filter).toBeUndefined(); // the event has only the id: it cannot be filtered
+
+      await act(async () => deleted[2]({ old: { id: 2 } }));
+
+      expect(screen.queryByText('Nice post')).not.toBeInTheDocument();
+      expect(screen.getByText('First!')).toBeInTheDocument();
+    });
+
+    it('ignores the deletion of a comment that is not on the screen (any post of the service)', async () => {
+      mockTable();
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('Nice post');
+      const deleted = channel.on.mock.calls.find(([, o]) => o.event === 'DELETE');
+
+      await act(async () => deleted[2]({ old: { id: 999 } }));
+
+      expect(screen.getByText('Nice post')).toBeInTheDocument();
+      expect(screen.getByText('First!')).toBeInTheDocument();
+    });
   });
 
   describe('pages', () => {

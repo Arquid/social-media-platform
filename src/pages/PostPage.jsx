@@ -67,6 +67,11 @@ function PostView({ id }) {
           if (payload.old.id === postId) setResult({ data: null, error: null });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'posts', filter: `id=eq.${postId}` },
+        () => refresh()
+      )
       .subscribe();
 
     return () => {

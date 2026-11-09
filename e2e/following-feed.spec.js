@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
-import { API, KEY, createUser, authHeaders, createProfilesInBulk, runSql } from './api';
+import { API, KEY, createUser, authHeaders, createProfilesInBulk, runSql, waitForRealtimeToCatchUp } from './api';
 import { newUser, signUp, postCard } from './helpers';
 
 // The Following tab reads the posts_following_feed view. The database decides whose posts are
@@ -63,7 +63,7 @@ test.describe('following feed (database view)', () => {
       user_id: followed.id, username: followed.username, like_count: 1, comment_count: 0, liked_by_me: true,
     });
     expect(Object.keys(rows[0]).sort()).toEqual(
-      ['avatar_path', 'comment_count', 'content', 'created_at', 'display_name', 'id', 'like_count', 'liked_by_me', 'user_id', 'username']
+      ['avatar_path', 'comment_count', 'content', 'created_at', 'display_name', 'edited_at', 'id', 'like_count', 'liked_by_me', 'user_id', 'username']
     );
   });
 
@@ -116,6 +116,9 @@ test('the Following tab shows the posts of 450 followed people and loads more', 
   await signUp(page, user);
   const userId = runSql(`select id from profiles where username = '${user.username}';`).trim();
   createFollowedAuthors({ prefix: `fu${tag()}`, count: 450, marker: 'ui-follow', followerId: userId });
+  // The 450 new posts are reported by Realtime a moment later: wait, so that they do not arrive at the page
+  // after it has loaded the first 20 and add themselves to the list
+  await waitForRealtimeToCatchUp();
 
   await page.goto('/');
   await page.getByRole('tab', { name: 'Following' }).click();

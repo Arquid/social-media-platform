@@ -82,3 +82,24 @@ export function createProfilesInBulk(prefix, count) {
     from generate_series(1, ${count}) g;
   `);
 }
+
+// Realtime reads the changes of the database from its log, a little behind. Rows written straight
+// into the database (as many tests do) are reported to the open pages a moment later. A test that
+// then opens a page would get the "new post" messages of rows that were already there when the page
+// loaded. This waits until Realtime has read everything that has been written so far.
+export async function waitForRealtimeToCatchUp({ timeoutMs = 20_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const lag = Number(
+      runSql(`
+        select coalesce(max(pg_current_wal_lsn() - confirmed_flush_lsn), 0)
+        from pg_replication_slots
+        where slot_name like 'supabase_realtime_replication_slot%' and slot_name not like '%messages%';
+      `).trim()
+    );
+    // A little WAL is always written by the database itself, so "caught up" means a small lag
+    if (lag < 4096) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error('Realtime did not catch up with the database in time');
+}

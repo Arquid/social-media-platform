@@ -47,6 +47,12 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('h1')).toHaveCount(1);
       expect(await problemsOn(page), 'home').toEqual([]);
 
+      // The box for editing the post, with its Save and Cancel buttons
+      await postCard(page, text).getByRole('button', { name: 'Edit post' }).click();
+      await expect(page.getByRole('textbox', { name: 'Edit post text' })).toBeVisible();
+      await expect.poll(() => problemsOn(page), { message: 'editing a post' }).toEqual([]);
+      await page.getByRole('button', { name: 'Cancel' }).click();
+
       // Following tab (empty)
       await page.getByRole('tab', { name: 'Following' }).click();
       await expect(page.getByText('No posts yet.')).toBeVisible();
@@ -63,6 +69,12 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.getByText(text)).toBeVisible();
       await expect(page.locator('h1')).toHaveCount(1);
       expect(await problemsOn(page), 'post page').toEqual([]);
+
+      // With an own comment, which has a delete button
+      await page.getByRole('textbox', { name: 'Write a comment' }).fill('a comment for the check');
+      await page.getByRole('button', { name: 'Send' }).click();
+      await expect(page.getByRole('button', { name: 'Delete comment' })).toBeVisible();
+      expect(await problemsOn(page), 'post page with an own comment').toEqual([]);
 
       // Search with a result
       await page.goto(`/search?q=${fan.username}`);

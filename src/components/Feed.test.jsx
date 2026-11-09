@@ -350,7 +350,24 @@ describe('Feed', () => {
       expect(optionsOf(activityChannels()[0])).toEqual([
         { event: '*', schema: 'public', table: 'likes', filter: 'post_id=in.(3,2,1)' },
         { event: 'INSERT', schema: 'public', table: 'comments', filter: 'post_id=in.(3,2,1)' },
+        // The author may edit a post: the filter is on the id of the post, not on post_id
+        { event: 'UPDATE', schema: 'public', table: 'posts', filter: 'id=in.(3,2,1)' },
       ]);
+    });
+
+    it('shows the new text and the "edited" mark when the author edits a post that is on the screen', async () => {
+      queueQueries(
+        createQuery({ data: makePosts(2), error: null }),
+        createQuery({ data: { ...makePosts(1, 2)[0], content: 'Post 2, better', edited_at: '2026-10-01T10:00:00Z' }, error: null })
+      );
+      renderWithProviders(<Feed />);
+      await waitForActivity();
+
+      await act(() => handlerOf(activityChannels()[0], 'posts', 'UPDATE')({ new: { id: 2 } }));
+
+      expect(await screen.findByText('Post 2, better')).toBeInTheDocument();
+      expect(screen.getByText(/· edited/)).toBeInTheDocument();
+      expect(screen.queryByText('Post 2')).not.toBeInTheDocument();
     });
 
     it('never listens to the likes or comments of the whole service', async () => {

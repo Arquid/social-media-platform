@@ -32,8 +32,8 @@
 ### Social
 | | |
 |---|---|
-| **Posts** | Create and delete. Your own new post appears at the top **at once**, even if realtime is slow or broken, and is never shown twice |
-| **Likes and comments** | Counts are computed in the database (`posts_feed` view). Likes are **optimistic**: instant update, undone with an error toast if saving fails |
+| **Posts** | Create, **edit** and delete. Your own new post appears at the top **at once**, even if realtime is slow or broken, and is never shown twice. An edited post says "· edited" (the exact time is in the tooltip), and everybody who has it on the screen sees the new text without reloading. The database allows changing the text only, and sets the time of the edit itself |
+| **Likes and comments** | Counts are computed in the database (`posts_feed` view). Likes are **optimistic**: instant update, undone with an error toast if saving fails. You can **delete your own comments** (the count follows, and others who read them see the comment go) |
 | **Follow** | Follow / unfollow, with a **Following** feed filtered by the database (`posts_following_feed`), so it works for users who follow thousands of people |
 | **Notifications** | Likes, comments and new followers, opened as the post (`/post/:id`) or the follower's profile. Repeating an action (like, unlike, like again) gives **one** notification, enforced by unique indexes |
 | **Search** | `/search` finds people by username or display name (any letter case, part of a word), ranked and limited to 20. The text lives in the address (`/search?q=anna`), so reload, back button and shared links work |
@@ -173,6 +173,8 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `notifications.spec.js` | No duplicate notifications for repeated likes or follows (comments still notify), read stays read, users cannot create notifications |
 | `optimistic-like.spec.js` | Slow or broken network: instant update, correct counter, undo with an error message |
 | `account-deletion.spec.js` | The whole path in the browser: a user with a picture, post, comment, like and follows deletes the account. Every row and the picture file are gone, a friend's data stays and the friend's open page updates live, the old login stops working and the name can be used again. Also: exact username needed, a failing picture removal keeps the account, and the function deletes only the caller's account and cannot be called without logging in |
+| `edit-post.spec.js` | Editing a post in the database: the text changes and `edited_at` is set by the database, saving the same text is not an edit, nobody else can edit, no visitors, author/time/edit time cannot be changed (not even together with the text), 1-500 characters, likes and comments stay, the feed views show the edit time |
+| `post-editing-ui.spec.js` | In the browser: editing a post (also on the post page and profile), "edited" mark after a reload, Cancel and same text, edit button on own posts only, other people see the edit live (feed and post page); deleting a comment (count goes down, live for readers, under a feed post too) |
 | `pagination.spec.js` | Lists longer than a page in the browser: 45 notifications, 45 comments (also under a post in the feed) and 45 search results, 20 at a time, newest first, nobody twice, the button gone on the last page, new notifications and comments on top (also your own), the search starting over when the text changes |
 | `realtime-filters.spec.js` | Reads the real WebSocket messages of the page: likes and comments of posts that are not shown never arrive (feed and post page), a profile page gets only that user's new posts, while the shown posts still update live (like, unlike, comment, your own new post) |
 | `own-post.spec.js` | With realtime blocked completely your own posts still appear at once, in order, exactly once |
@@ -236,6 +238,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 | `least_privilege` | Removes excess privileges from the API roles, closes new objects by default |
 | `delete_account` | `delete_my_account()` function: a logged-in user deletes their own account (only the caller's, only when logged in) |
 | `pagination` | Indexes for paging notifications and comments by id (they replace the older ones), and `search_profiles` with a page size and a start |
+| `edit_posts` | Editing posts: `posts.edited_at` (set by a trigger, only when the text really changes), the policy "posts update own", the privilege to change the column `content` only, and the new column in the feed views |
 
 > The username constraint is `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles that break the rule, fix them and run `alter table profiles validate constraint profiles_username_format;`.
 
@@ -247,8 +250,8 @@ Run them in filename order. On a fresh local database they are applied automatic
   | Role | Can do |
   |---|---|
   | Visitor (`anon`) | Nothing. The API answers 401, not an empty list |
-  | Logged-in user | Read; add and delete own posts, comments, likes and follows; edit own profile; set the `read` flag of own notifications; delete own account (`delete_my_account()`) |
-  | Nobody through the API | Edit posts, likes, follows or comments; delete profiles; touch the rate limit log; call trigger functions |
+  | Logged-in user | Read; add and delete own posts, comments, likes and follows; change the **text** of own posts; edit own profile; set the `read` flag of own notifications; delete own account (`delete_my_account()`) |
+  | Nobody through the API | Change the author, time or edit time of a post; edit likes, follows or comments; delete profiles; touch the rate limit log; call trigger functions |
 
 - New tables, sequences and functions are **closed by default** until a migration grants access, and a test fails if a table has no decision.
 - Rate limits live in triggers, so parallel requests, bulk inserts, deleting posts and backdated posts cannot get around them.

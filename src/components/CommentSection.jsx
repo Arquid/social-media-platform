@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, TextField, Button, Typography, Link, Stack } from '@mui/material';
+import { Box, TextField, Button, Typography, Link, Stack, IconButton } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { supabase } from '../lib/supabaseClient';
 import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
@@ -24,7 +25,7 @@ async function fetchComments(postId, { beforeId, afterId } = {}) {
   return { data: data ?? [], error };
 }
 
-export default function CommentSection({ postId }) {
+export default function CommentSection({ postId, onChange }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [comments, setComments] = useState([]);
@@ -83,6 +84,12 @@ export default function CommentSection({ postId }) {
         { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` },
         loadNewer
       )
+      // A deleted comment: the event has only its id (and cannot be filtered by post), so ignore
+      // the ones that are not on the screen. Deleting is rare, so this is few messages.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, (payload) => {
+        const id = payload.old.id;
+        setComments((prev) => (prev.some((c) => c.id === id) ? prev.filter((c) => c.id !== id) : prev));
+      })
       .subscribe();
 
     return () => {
@@ -109,6 +116,18 @@ export default function CommentSection({ postId }) {
     loadNewer();
   }
 
+  async function handleDelete(commentId) {
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+
+    if (error) {
+      showToast(`Could not delete comment: ${error.message}`);
+      return;
+    }
+
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    onChange?.(); // the post card counts its comments again
+  }
+
   return (
     <Box sx={{ mt: 1 }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -124,12 +143,19 @@ export default function CommentSection({ postId }) {
       </form>
       <Stack spacing={1}>
         {comments.map((c) => (
-          <Typography key={c.id} variant="body2">
-            <Link component={RouterLink} to={`/profile/${c.profiles.username}`} underline="hover" fontWeight={600}>
-              @{c.profiles.username}
-            </Link>{' '}
-            {c.content}
-          </Typography>
+          <Box key={c.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+              <Link component={RouterLink} to={`/profile/${c.profiles.username}`} underline="always" fontWeight={600}>
+                @{c.profiles.username}
+              </Link>{' '}
+              {c.content}
+            </Typography>
+            {c.user_id === user.id && (
+              <IconButton size="small" aria-label="Delete comment" onClick={() => handleDelete(c.id)}>
+                <DeleteOutlineIcon fontSize="inherit" />
+              </IconButton>
+            )}
+          </Box>
         ))}
       </Stack>
       {hasMore && (
