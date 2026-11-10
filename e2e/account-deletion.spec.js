@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import {
   API, KEY, createUser, authHeaders, uploadAvatar, publicAvatarUrl, patchProfile, runSql,
+  uploadPostImage, publicPostImageUrl,
 } from './api';
 import { newUser, signUp, createPost, postCard } from './helpers';
 
@@ -35,7 +36,7 @@ function leftOf(id) {
         || (select count(*) from follows where follower_id = '${id}' or following_id = '${id}') || ' follows, '
         || (select count(*) from notifications where user_id = '${id}' or actor_id = '${id}') || ' notifications, '
         || (select count(*) from rate_limit_events where user_id = '${id}') || ' log rows, '
-        || (select count(*) from storage.objects where bucket_id = 'avatars' and name like '${id}/%') || ' pictures';
+        || (select count(*) from storage.objects where bucket_id in ('avatars', 'post-images') and name like '${id}/%') || ' pictures';
   `).trim();
 }
 const NOTHING = '0 users, 0 profiles, 0 posts, 0 comments, 0 likes, 0 follows, 0 notifications, 0 log rows, 0 pictures';
@@ -65,6 +66,14 @@ test('deleting an account removes everything of the user, and nothing of the oth
   expect((await uploadAvatar(request, leaverApi, picture)).ok()).toBe(true);
   expect((await patchProfile(request, leaverApi, { avatar_path: picture })).ok()).toBe(true);
   expect((await request.get(publicAvatarUrl(picture))).ok()).toBe(true);
+  // ... and a post with a picture of its own, which is a file in the other bucket
+  const postPicture = `${leaverId}/${Date.now() + 1}.png`;
+  expect((await uploadPostImage(request, leaverApi, postPicture)).ok()).toBe(true);
+  expect((await request.post(`${API}/rest/v1/posts`, {
+    headers: authHeaders(leaverApi, json),
+    data: { user_id: leaverId, content: `leaver post with a picture ${tag()}`, image_path: postPicture },
+  })).ok()).toBe(true);
+  expect((await request.get(publicPostImageUrl(postPicture))).ok()).toBe(true);
 
   const leaversPost = `leaver post ${tag()}`;
   await page.goto('/');
@@ -98,6 +107,7 @@ test('deleting an account removes everything of the user, and nothing of the oth
   // --- everything of the leaver is gone: tables, notifications, the log and the picture file ---
   expect(leftOf(leaverId)).toBe(NOTHING);
   expect((await request.get(publicAvatarUrl(picture))).ok()).toBe(false);
+  expect((await request.get(publicPostImageUrl(postPicture))).ok()).toBe(false);
 
   // --- but nothing of the friend ---
   expect(count(`select count(*) from profiles where id = '${friendId}';`)).toBe(1);
@@ -175,7 +185,7 @@ test('if the picture cannot be removed the account is not deleted', async ({ pag
   await dialog.getByLabel(/type .* to confirm/i).fill(user.username);
   await dialog.getByRole('button', { name: 'Delete account' }).click();
 
-  await expect(dialog.getByRole('alert')).toContainText('Could not remove your profile picture');
+  await expect(dialog.getByRole('alert')).toContainText('Could not remove your pictures');
   expect(count(`select count(*) from profiles where id = '${id}';`)).toBe(1);
   expect((await request.get(publicAvatarUrl(picture))).ok()).toBe(true);
   await expect(page).toHaveURL(new RegExp(`/profile/${user.username}$`));

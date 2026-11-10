@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import UserAvatar from './UserAvatar';
 
 const PAGE_SIZE = 20;
 
@@ -13,7 +14,7 @@ const PAGE_SIZE = 20;
 async function fetchComments(postId, { beforeId, afterId } = {}) {
   let query = supabase
     .from('comments')
-    .select('*, profiles!comments_user_id_fkey(username)')
+    .select('*, profiles!comments_user_id_fkey(username, avatar_path)')
     .eq('post_id', postId)
     .order('id', { ascending: false });
 
@@ -144,6 +145,7 @@ export default function CommentSection({ postId, onChange }) {
       <Stack spacing={1}>
         {comments.map((c) => (
           <Box key={c.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <UserAvatar username={c.profiles.username} avatarPath={c.profiles.avatar_path} size={24} />
             <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
               <Link component={RouterLink} to={`/profile/${c.profiles.username}`} underline="always" fontWeight={600}>
                 @{c.profiles.username}

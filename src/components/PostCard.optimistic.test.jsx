@@ -206,10 +206,16 @@ describe('PostCard: optimistic like', () => {
   it('accepts a new click once the previous one is finished', async () => {
     supabase.from.mockReturnValue(createQuery({ error: null }));
     let current = likedPost;
-    renderWithProviders(<Host refresh={async () => current} />);
+    const refresh = vi.fn(async () => current);
+    renderWithProviders(<Host refresh={refresh} />);
 
     await userEvent.click(likeButton());
     expect(await screen.findByRole('button', { name: 'Unlike post' })).toBeInTheDocument();
+    // The screen already shows the like while the first request is still being finished, and a click
+    // in that time is ignored on purpose. Wait until it is completely done (the post has been loaded
+    // again and React has left the "pending" state), so that the test does not depend on the speed.
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    await act(async () => {});
 
     current = basePost;
     await userEvent.click(unlikeButton());

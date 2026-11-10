@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { deleteAllAvatars } from '../lib/avatars';
+import { deleteAllPostImages } from '../lib/postImages';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 
@@ -20,10 +21,13 @@ export default function DeleteAccountDialog({ username, onClose }) {
     setError('');
     setDeleting(true);
 
-    // 1. The picture is a file in Storage, which the database cannot remove: do it while we still can
-    const pictures = await deleteAllAvatars(user.id);
-    if (pictures.error) {
-      setError(`Could not remove your profile picture: ${pictures.error.message}`);
+    // 1. The pictures are files in Storage, which the database cannot remove: do it while we still can.
+    // One kind after the other, and stop at the first failure, so that a failure leaves the rest as it was
+    const avatars = await deleteAllAvatars(user.id);
+    const postImages = avatars.error ? {} : await deleteAllPostImages(user.id);
+    const failed = avatars.error ?? postImages.error;
+    if (failed) {
+      setError(`Could not remove your pictures: ${failed.message}`);
       setDeleting(false);
       return;
     }

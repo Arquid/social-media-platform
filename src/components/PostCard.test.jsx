@@ -6,13 +6,17 @@ import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery } from '../test/supabaseMock';
 
+const { removeFromStorage } = vi.hoisted(() => ({ removeFromStorage: vi.fn() }));
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: vi.fn(),
     channel: vi.fn(),
     removeChannel: vi.fn(),
     storage: {
-      from: () => ({ getPublicUrl: (p) => ({ data: { publicUrl: `http://storage.test/${p}` } }) }),
+      from: () => ({
+        getPublicUrl: (p) => ({ data: { publicUrl: `http://storage.test/${p}` } }),
+        remove: removeFromStorage,
+      }),
     },
   },
 }));
@@ -156,6 +160,64 @@ describe('PostCard', () => {
 
     expect(await screen.findByText('Could not update like: boom')).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  describe('a picture in the post', () => {
+    const withPicture = { ...basePost, image_path: 'author-1/1712345678.jpg' };
+
+    it('shows the picture, with a description that names the author', () => {
+      renderWithProviders(<PostCard post={withPicture} />);
+
+      const picture = screen.getByRole('img', { name: 'Picture in the post of @author' });
+      expect(picture).toHaveAttribute('src', 'http://storage.test/author-1/1712345678.jpg');
+      expect(picture).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('shows no picture for a post without one', () => {
+      renderWithProviders(<PostCard post={{ ...basePost, image_path: null }} />);
+
+      expect(screen.queryByRole('img', { name: /Picture in the post/ })).not.toBeInTheDocument();
+    });
+
+    it('keeps the picture visible while the text is being edited', async () => {
+      renderWithProviders(<PostCard post={{ ...withPicture, user_id: TEST_USER.id }} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Edit post' }));
+
+      expect(screen.getByRole('img', { name: 'Picture in the post of @author' })).toBeInTheDocument();
+    });
+
+    it('removes the file from the storage after the post has been deleted', async () => {
+      supabase.from.mockReturnValue(createQuery({ error: null }));
+      const onDelete = vi.fn();
+      renderWithProviders(<PostCard post={{ ...withPicture, user_id: TEST_USER.id }} onDelete={onDelete} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Delete post' }));
+
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(7));
+      expect(removeFromStorage).toHaveBeenCalledWith(['author-1/1712345678.jpg']);
+    });
+
+    it('does not touch the storage for a post without a picture', async () => {
+      supabase.from.mockReturnValue(createQuery({ error: null }));
+      const onDelete = vi.fn();
+      renderWithProviders(<PostCard post={{ ...basePost, user_id: TEST_USER.id }} onDelete={onDelete} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Delete post' }));
+
+      await waitFor(() => expect(onDelete).toHaveBeenCalled());
+      expect(removeFromStorage).not.toHaveBeenCalled();
+    });
+
+    it('keeps the file when the post could not be deleted (the post is still there and needs it)', async () => {
+      supabase.from.mockReturnValue(createQuery({ error: { message: 'denied' } }));
+      renderWithProviders(<PostCard post={{ ...withPicture, user_id: TEST_USER.id }} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Delete post' }));
+
+      await screen.findByText('Could not delete post: denied');
+      expect(removeFromStorage).not.toHaveBeenCalled();
+    });
   });
 
   describe('editing', () => {

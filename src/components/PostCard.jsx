@@ -9,6 +9,7 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { supabase } from '../lib/supabaseClient';
+import { getPostImageUrl, deletePostImage } from '../lib/postImages';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
@@ -69,6 +70,7 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
       showToast(`Could not delete post: ${error.message}`);
       return;
     }
+    await deletePostImage(post.image_path); // the database cannot remove files
     onDelete?.(post.id);
   }
 
@@ -137,6 +139,15 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
           </form>
         ) : (
           <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{post.content}</Typography>
+        )}
+        {post.image_path && (
+          <Box
+            component="img"
+            src={getPostImageUrl(post.image_path)}
+            alt={`Picture in the post of @${post.username}`}
+            loading="lazy"
+            sx={{ display: 'block', mt: 1.5, width: '100%', maxHeight: 480, objectFit: 'cover', borderRadius: 1 }}
+          />
         )}
       </CardContent>
 

@@ -103,3 +103,15 @@ export async function waitForRealtimeToCatchUp({ timeoutMs = 20_000 } = {}) {
   }
   throw new Error('Realtime did not catch up with the database in time');
 }
+
+// The pictures in posts live in their own bucket, with the same rules as the avatars
+export function uploadPostImage(request, user, path, { body = TINY_PNG, contentType = 'image/png' } = {}) {
+  return request.post(`${API}/storage/v1/object/post-images/${path}`, {
+    headers: authHeaders(user, { 'Content-Type': contentType }),
+    data: body,
+  });
+}
+
+export function publicPostImageUrl(path) {
+  return `${API}/storage/v1/object/public/post-images/${path}`;
+}

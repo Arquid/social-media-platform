@@ -4,12 +4,14 @@ import userEvent from '@testing-library/user-event';
 import DeleteAccountDialog from './DeleteAccountDialog';
 import { supabase } from '../lib/supabaseClient';
 import { deleteAllAvatars } from '../lib/avatars';
+import { deleteAllPostImages } from '../lib/postImages';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { rpc: vi.fn() },
 }));
 vi.mock('../lib/avatars', () => ({ deleteAllAvatars: vi.fn() }));
+vi.mock('../lib/postImages', () => ({ deleteAllPostImages: vi.fn() }));
 
 // The order of the first steps matters (the picture can only be removed while the account exists),
 // so everything that happens is written down here
@@ -43,6 +45,10 @@ describe('DeleteAccountDialog', () => {
     log = [];
     deleteAllAvatars.mockImplementation(async () => {
       log.push('pictures');
+      return {};
+    });
+    deleteAllPostImages.mockImplementation(async () => {
+      log.push('postImages');
       return {};
     });
     supabase.rpc.mockImplementation(async () => {
@@ -87,8 +93,9 @@ describe('DeleteAccountDialog', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('delete_my_account');
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true });
     // The picture first: after the account is gone there is no login any more to remove it with
-    expect(log.slice(0, 2)).toEqual(['pictures', 'rpc']);
-    expect(log.slice(2).sort()).toEqual(['navigate', 'signOut']);
+    expect(log.slice(0, 3)).toEqual(['pictures', 'postImages', 'rpc']);
+    expect(log.slice(3).sort()).toEqual(['navigate', 'signOut']);
+    expect(deleteAllPostImages).toHaveBeenCalledWith(TEST_USER.id);
   });
 
   it('tells the user the account is gone', async () => {
@@ -105,12 +112,34 @@ describe('DeleteAccountDialog', () => {
 
     await confirmAndDelete();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove your profile picture: storage down');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove your pictures: storage down');
     expect(supabase.rpc).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(signOut).not.toHaveBeenCalled();
     expect(box()).toHaveValue('alice');
     expect(confirmButton()).toBeEnabled();
+  });
+
+  it('does not delete the account when the pictures of the posts cannot be removed', async () => {
+    deleteAllPostImages.mockResolvedValue({ error: { message: 'post pictures are stuck' } });
+    const { signOut } = setup();
+
+    await confirmAndDelete();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove your pictures: post pictures are stuck');
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(confirmButton()).toBeEnabled();
+  });
+
+  it('stops at the first failure: if the avatar cannot be removed the pictures of the posts are left alone', async () => {
+    deleteAllAvatars.mockResolvedValue({ error: { message: 'storage down' } });
+    setup();
+
+    await confirmAndDelete();
+
+    await screen.findByRole('alert');
+    expect(deleteAllPostImages).not.toHaveBeenCalled();
   });
 
   it('stays on the page and logged in when the database refuses', async () => {

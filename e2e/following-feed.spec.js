@@ -63,7 +63,7 @@ test.describe('following feed (database view)', () => {
       user_id: followed.id, username: followed.username, like_count: 1, comment_count: 0, liked_by_me: true,
     });
     expect(Object.keys(rows[0]).sort()).toEqual(
-      ['avatar_path', 'comment_count', 'content', 'created_at', 'display_name', 'edited_at', 'id', 'like_count', 'liked_by_me', 'user_id', 'username']
+      ['avatar_path', 'comment_count', 'content', 'created_at', 'display_name', 'edited_at', 'id', 'image_path', 'like_count', 'liked_by_me', 'user_id', 'username']
     );
   });
 

@@ -7,7 +7,12 @@ import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery, createChannel } from '../test/supabaseMock';
 
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
+  supabase: {
+    from: vi.fn(),
+    channel: vi.fn(),
+    removeChannel: vi.fn(),
+    storage: { from: () => ({ getPublicUrl: (p) => ({ data: { publicUrl: `http://storage.test/${p}` } }) }) },
+  },
 }));
 
 const RATE_LIMIT_ERROR = {
@@ -79,6 +84,21 @@ describe('CommentSection', () => {
     const oldest = screen.getByText('First!');
     expect(newest.compareDocumentPosition(oldest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(input().compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the avatar of the author next to each comment, and asks for it', async () => {
+    mockTable({
+      comments: [
+        { ...existing[0], profiles: { username: 'bob', avatar_path: 'u2/me.png' } },
+        { ...existing[1], profiles: { username: 'alice', avatar_path: null } },
+      ],
+    });
+    renderWithProviders(<CommentSection postId={7} />);
+
+    expect(await screen.findByAltText("bob's avatar")).toHaveAttribute('src', 'http://storage.test/u2/me.png');
+    // Without a picture the first letter of the name is shown instead
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(listQuery.select).toHaveBeenCalledWith('*, profiles!comments_user_id_fkey(username, avatar_path)');
   });
 
   it('gives the text box an accessible name (it must be on the input itself)', async () => {

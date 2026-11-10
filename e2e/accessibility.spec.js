@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { API, createUser, authHeaders, runSql } from './api';
+import { API, TINY_PNG, createUser, authHeaders, runSql } from './api';
 import { newUser, signUp, createPost, postCard } from './helpers';
 
 // Every page is checked with axe-core (the same rules as the browser extension of Deque), in the
@@ -46,6 +46,15 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('a[href="/notifications"]')).toHaveAttribute('aria-label', 'Notifications, 1 unread');
       await expect(page.locator('h1')).toHaveCount(1);
       expect(await problemsOn(page), 'home').toEqual([]);
+
+      // The post form with a picture chosen, and then the post with its picture
+      await page.locator('input[type="file"]').setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: TINY_PNG });
+      await expect(page.getByRole('img', { name: 'Picture to be posted' })).toBeVisible();
+      await expect.poll(() => problemsOn(page), { message: 'post form with a picture' }).toEqual([]);
+      await page.getByPlaceholder("What's on your mind?").fill(`picture post ${user.username}`);
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(page.getByRole('img', { name: /Picture in the post of/ }).first()).toBeVisible();
+      expect(await problemsOn(page), 'post with a picture').toEqual([]);
 
       // The box for editing the post, with its Save and Cancel buttons
       await postCard(page, text).getByRole('button', { name: 'Edit post' }).click();
