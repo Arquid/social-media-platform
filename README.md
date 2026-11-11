@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-466_unit_%2B_206_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-535_unit_%2B_230_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -133,15 +133,35 @@ npm run db:reset      # wipe the local database and re-apply migrations
 | `npm test` / `test:watch` | Unit and component tests (Vitest) / watch mode |
 | `npm run test:coverage` | Unit tests with a coverage report (`coverage/index.html`); fails below the limits in `vite.config.js` |
 | `npm run test:e2e` | End-to-end tests (Playwright, needs local Supabase) |
+| `npm run verify` | **Fast check of your change**: lint, the unit tests and only the end-to-end tests that look at the changed files ([details](#fast-check-of-a-change)) |
+| `npm run verify:all` | The same steps for everything, like the CI |
 | `npm run db:start` / `db:stop` / `db:status` / `db:reset` | Local Supabase (Docker) |
 
 ## Testing
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **466** | Mocked Supabase, no backend. **98.3 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
-| End-to-end | **206** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **535** (510 app, 25 for the test selection) | Mocked Supabase, no backend. **98.3 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
+| End-to-end | **230** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
+
+### Fast check of a change
+
+All end-to-end tests take about nine minutes, so while developing run
+
+```bash
+npm run verify
+```
+
+It looks at what you changed (`git diff` against the last commit plus new files) and runs
+
+1. lint,
+2. the unit tests that are affected by the change (`vitest --changed`),
+3. only the end-to-end test files that look at those files, plus two quick core flows (`social`, `auth`) for any change in `src/`.
+
+The local Supabase is started if it is not running and reset only when a migration changed. A change of one page takes about 5 minutes instead of 9 or more, and a change of documents takes seconds. Options: `-- --dry-run` shows the plan only, `-- --files=a,b` pretends that these files changed, `npm run verify:all` runs everything.
+
+Which tests look at which file is a table in [`scripts/affected.js`](scripts/affected.js). A file that is not in the table makes **everything** run (a wrong guess costs time, never a missed bug), and unit tests in `scripts/affected.test.js` fail when a new e2e test, source file or migration has no entry. The CI always runs everything, so `verify` is the fast check and the CI is the last word.
 
 Tests are also checked by **mutation**: a feature is broken on purpose and the matching test must fail.
 

@@ -19,6 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "verify": "node scripts/verify.mjs",
+    "verify:all": "node scripts/verify.mjs --all",
     "test:e2e": "playwright test"
   },
   "dependencies": {
