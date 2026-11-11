@@ -5,6 +5,13 @@ import Feed from './Feed';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { createQuery, createChannel, makePosts } from '../test/supabaseMock';
+import { logError } from '../lib/errorReporting';
+
+// The real logging is kept (console and all); the test only watches what it is asked to log
+vi.mock('../lib/errorReporting', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, logError: vi.fn(actual.logError) };
+});
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
@@ -109,6 +116,7 @@ describe('Feed', () => {
     await userEvent.click(screen.getByRole('button', { name: /load more/i }));
 
     expect(await screen.findByText('Could not load more posts: timeout')).toBeInTheDocument();
+    expect(logError).toHaveBeenCalledWith('Feed query failed:', { message: 'timeout' });
     expect(screen.getAllByText(/^Post \d+$/)).toHaveLength(20);
     expect(screen.getByRole('button', { name: /load more/i })).toBeEnabled();
   });
@@ -304,6 +312,7 @@ describe('Feed', () => {
       await screen.findByText('Post 1');
       await waitFor(() => expect(supabase.from).toHaveBeenCalledTimes(2));
       expect(postTexts()).toEqual(['Post 1']);
+      expect(logError).toHaveBeenCalledWith('Post refresh failed:', { message: 'boom' });
     });
 
     it('does nothing when there is no new post', async () => {

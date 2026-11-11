@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ErrorBoundary from './ErrorBoundary';
+import { reportError } from '../lib/errorReporting';
+
+vi.mock('../lib/errorReporting', () => ({ reportError: vi.fn() }));
 
 // A child that crashes while the flag is on
 let broken = true;
@@ -16,6 +19,7 @@ describe('ErrorBoundary', () => {
   let consoleError;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     broken = true;
     thrown = new Error('kaboom');
     // React logs every caught error; keep the test output clean (and check our own log)
@@ -56,6 +60,46 @@ describe('ErrorBoundary', () => {
     expect(logged).toBeTruthy();
     expect(logged[1]).toBe(thrown);
     expect(logged[2]).toContain('Bomb'); // the component stack
+  });
+
+  it('reports the error, with the component stack and where it happened', () => {
+    render(<ErrorBoundary><Bomb /></ErrorBoundary>);
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    const [error, where, extra] = reportError.mock.calls[0];
+    expect(error).toBe(thrown);
+    expect(where).toBe('interface');
+    expect(extra.componentStack).toContain('Bomb');
+  });
+
+  it('reports nothing when nothing went wrong', () => {
+    broken = false;
+    render(<ErrorBoundary><Bomb /></ErrorBoundary>);
+
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('reports again when the error comes back after "Try again"', async () => {
+    render(<ErrorBoundary><Bomb /></ErrorBoundary>);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(reportError).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not report an outdated app version: that is a new release, not a bug', () => {
+    thrown = new Error('Failed to fetch dynamically imported module: http://localhost/assets/Profile-abc.js');
+    render(<ErrorBoundary><Bomb /></ErrorBoundary>);
+
+    expect(screen.getByRole('button', { name: 'Reload page' })).toBeInTheDocument();
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('reports something that is not an Error too', () => {
+    thrown = 'just a string';
+    render(<ErrorBoundary><Bomb /></ErrorBoundary>);
+
+    expect(reportError).toHaveBeenCalledWith('just a string', 'interface', expect.any(Object));
   });
 
   it('offers "Try again" and "Go to the feed" for a normal error', () => {

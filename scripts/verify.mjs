@@ -10,6 +10,7 @@
 // "Changed" means: different from the last commit, or new and not committed yet.
 
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import { selectSpecs, needsSmoke, touchesDatabase, SMOKE } from './affected.js';
 
 const args = process.argv.slice(2);
@@ -49,7 +50,7 @@ console.log('\nPlan:');
 console.log('  1. lint');
 console.log(`  2. unit tests ${everything || files.some((f) => /^(package|vite\.config|src\/test\/setup)/.test(f)) ? '(all)' : '(the ones that are affected by the change)'}`);
 if (runAllEndToEnd) console.log(`  3. end-to-end tests: ALL${unknownChange && !everything ? ' (a changed file is not known to scripts/affected.js)' : ''}`);
-else if (specPaths.length > 0) console.log(`  3. end-to-end tests: ${specPaths.length} of 27 files: ${[...selected].sort().join(', ')}`);
+else if (specPaths.length > 0) console.log(`  3. end-to-end tests: ${specPaths.length} of ${fs.readdirSync('e2e').filter((f) => f.endsWith('.spec.js')).length} files: ${[...selected].sort().join(', ')}`);
 else console.log('  3. end-to-end tests: none needed');
 if (resetDatabase && (runAllEndToEnd || specPaths.length > 0)) console.log(`     (the local database is reset first: ${everything ? 'everything is run' : 'a migration changed'})`);
 if (flag('dry-run')) process.exit(0);

@@ -6,6 +6,13 @@ import PostPage from './PostPage';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery, createChannel } from '../test/supabaseMock';
+import { logError } from '../lib/errorReporting';
+
+// The real logging is kept (console and all); the test only watches what it is asked to log
+vi.mock('../lib/errorReporting', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, logError: vi.fn(actual.logError) };
+});
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
@@ -135,6 +142,7 @@ describe('PostPage', () => {
     renderPage();
 
     expect(await screen.findByText(/could not load the post: network down/i)).toBeInTheDocument();
+    expect(logError).toHaveBeenCalledWith('Post query failed:', { message: 'network down' });
   });
 
   it('reloads the post after you like it, so the counter is correct', async () => {

@@ -7,6 +7,7 @@ import { isRateLimited } from '../lib/errors';
 import {
   POST_IMAGE_TYPES, validatePostImage, uploadPostImage, deletePostImage,
 } from '../lib/postImages';
+import { logError } from '../lib/errorReporting';
 import { useAuth } from '../hooks/useAuth';
 
 export default function PostForm({ onPosted }) {
@@ -65,7 +66,7 @@ export default function PostForm({ onPosted }) {
 
     if (error) {
       await deletePostImage(imagePath); // do not leave a file behind that no post uses
-      if (!isRateLimited(error)) console.error('Post insert failed:', error);
+      if (!isRateLimited(error)) logError('Post insert failed:', error);
       setRateLimited(isRateLimited(error));
       setError(error.message);
       return;

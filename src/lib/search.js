@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { logError } from './errorReporting';
 
 export const MIN_SEARCH_LENGTH = 2;
 export const SEARCH_PAGE_SIZE = 20;
@@ -12,7 +13,7 @@ export async function searchProfiles(text, offset = 0) {
   });
 
   if (error) {
-    console.error('Search failed:', error);
+    logError('Search failed:', error);
     return { users: [], error: error.message, hasMore: false };
   }
   return { users: data, error: '', hasMore: data.length === SEARCH_PAGE_SIZE };

@@ -1,6 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
 const PORT = 5175;
+// A second copy of the app, with error reporting switched on, for e2e/error-reporting.spec.js.
+// The address does not exist: the test catches what the browser tries to send to it.
+const REPORTING_PORT = 5176;
+const REPORTING_DSN = 'http://e2ekey@localhost:9999/42';
 
 export default defineConfig({
   testDir: './e2e',
@@ -20,10 +24,19 @@ export default defineConfig({
     channel: process.env.E2E_BROWSER ?? 'msedge',
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: `npm run dev:local -- --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: `npm run dev:local -- --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run dev:local -- --port ${REPORTING_PORT} --strictPort`,
+      url: `http://localhost:${REPORTING_PORT}`,
+      env: { VITE_SENTRY_DSN: REPORTING_DSN },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });

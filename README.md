@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-535_unit_%2B_230_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-574_unit_%2B_236_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -50,6 +50,7 @@
 | **Accessibility** | One first level heading per page, `main` and `nav` landmarks, named spinners. [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.0 / 2.1 A and AA) finds **zero problems** in the light and the dark theme |
 | **Theme and layout** | Responsive layout (Material UI). Light and dark theme, following the device until the user chooses (also before logging in). Both are checked for readable contrast |
 | **Error handling** | Error toasts when a like, comment, follow or delete fails, a 404 page, an error boundary instead of a blank screen (navigation keeps working), and a "Reload page" button when a new release replaces the page files |
+| **Error reporting** | Optional ([Sentry](https://sentry.io)): crashes and failed requests of other people's browsers are reported. Off unless `VITE_SENTRY_DSN` is set. Private by design: no user, cookies, address query or hash (a password reset link holds a secret there), no click or request history; offline noise, outdated-version errors and expected rate limits are not reported; at most 20 reports per page load |
 | **Code splitting** | Pages load on demand and the big libraries (React, Material UI, Supabase) are separate, cacheable files |
 
 ## Tech stack
@@ -84,6 +85,8 @@ cp .env.example .env
 ```ini
 VITE_SUPABASE_URL=https://YOUR-PROJECT-ID.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR-ANON-PUBLIC-KEY
+# Optional: error reporting (Sentry). Leave empty to send nothing.
+VITE_SENTRY_DSN=
 ```
 
 > Only use the `anon` key in the frontend. Never expose the `service_role` key.
@@ -141,8 +144,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **535** (510 app, 25 for the test selection) | Mocked Supabase, no backend. **98.3 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
-| End-to-end | **230** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **574** (549 app, 25 for the test selection) | Mocked Supabase, no backend. **98.3 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
+| End-to-end | **236** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 ### Fast check of a change
@@ -171,6 +174,7 @@ Tests are also checked by **mutation**: a feature is broken on purpose and the m
 - **Posts and feed:** post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting), the feed (pagination cursor, duplicate protection, the Following tab and its view, new posts, the realtime filters: only the posts on the screen, at most 100, one new subscription for a burst of posts, profile page filter, cleanup), the post form and comment section (saving, double submit, errors, the rate limit as a yellow warning that keeps the text), the home page (a new post at the top at once, two in a row, no jump after a tab switch)
 - **Account deletion:** the confirmation (exact username needed), the order (picture, then account), a failing picture removal or database stops everything, locked while working, double clicks, only on your own profile
 - **Pages:** profile, post page, notifications, search (typing pause, one search per pause, spinner, empty and error states, ignoring slow answers, text in the address), 404, login, sign up ("Check your email"), forgot and reset password (the exact return address, same answer for any address, errors, mismatching passwords, double clicks)
+- **Error reporting:** off without an address and Sentry not even loaded, private settings (no personal data, no tracing or replay), the cleaning of addresses, events and breadcrumbs, readable reports for database errors (code kept, row details left out), reports made while Sentry loads, the limit of 20, never throwing, reports from the error boundary (not for outdated versions) and from the failed queries (not for rate limits)
 - **App shell:** route protection, routing for unknown addresses, error boundary (catching, "Try again", reset on navigation, outdated version detection), navigation bar, theme toggle and both color schemes (WCAG contrast)
 - **Structure:** one first level heading per page in every state, `main` and `nav` areas, spinner names, `autocomplete` attributes
 - **Helpers:** avatar validation and storage calls, search library, rate limit error check, relative time texts (every limit, future times, six time zones), clock hook, debounce hook
@@ -211,6 +215,7 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `accessibility.spec.js` | axe-core on every page and the edit dialog, for visitors and users, in both themes; landmarks, headings, names |
 | `theme-and-time.spec.js` | Theme on dark and light devices (toggle, remembered, contrast measured in the browser) and the time texts |
 | `errors.spec.js` | 404 page, a crashed page, a blocked page file, working navigation and "Reload page" recovery |
+| `error-reporting.spec.js` | A second copy of the app with reporting on sends to an address that does not exist, and the test reads the message: a crash and a failing request are reported (where, code, component), a report holds none of the query, hash, email, password or login token of the page, offline errors and outdated versions are not reported; with reporting off nothing is sent and the Sentry file is not downloaded |
 
 </details>
 
@@ -290,7 +295,7 @@ src/
 │                                 # EditProfileDialog, UserAvatar, TimeAgo, ThemeToggle, PageTitle,
 │                                 # ProtectedRoute, ErrorBoundary
 ├── context/, hooks/              # Auth and toast providers; useAuth, useToast, useDebouncedValue, useNow
-├── lib/                          # Supabase client, avatars, search, rate limit errors, relative time
+├── lib/                          # Supabase client, avatars, search, error reporting, rate limit errors, relative time
 └── test/                         # Test setup, Supabase mocks, render helper (*.test.jsx sit next to the code)
 e2e/                              # Playwright end-to-end tests
 supabase/
@@ -304,7 +309,7 @@ supabase/
 The app can be deployed to Vercel or Netlify.
 
 1. Import the GitHub repository.
-2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables.
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables. To hear about errors, create a project at [sentry.io](https://sentry.io) (type React) and add its DSN as `VITE_SENTRY_DSN`; without it nothing is reported.
 3. In Supabase open **Authentication -> URL Configuration**. Set **Site URL** to your deployed address and add it (and `http://localhost:5173` for development) to **Redirect URLs**. Password reset and confirmation emails send users back through these addresses.
 4. **Email for real users.** Supabase's built-in email service only delivers to members of your own Supabase team, a few emails an hour. Set up your own SMTP server in **Authentication -> SMTP Settings** (Resend, Brevo, ...), otherwise password reset emails will not reach your users. Keep **Confirm email** off until that works.
 5. For Vercel add a `vercel.json` so that page refreshes on client-side routes work:

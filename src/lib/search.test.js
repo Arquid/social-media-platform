@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { searchProfiles, MIN_SEARCH_LENGTH, SEARCH_PAGE_SIZE } from './search';
 import { supabase } from './supabaseClient';
+import { logError } from './errorReporting';
+
+// The real logging is kept (console and all); the test only watches what it is asked to log
+vi.mock('./errorReporting', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, logError: vi.fn(actual.logError) };
+});
 
 vi.mock('./supabaseClient', () => ({
   supabase: { rpc: vi.fn() },
@@ -84,5 +91,6 @@ describe('searchProfiles', () => {
 
     expect(result).toEqual({ users: [], error: 'permission denied', hasMore: false });
     expect(console.error).toHaveBeenCalledWith('Search failed:', error);
+    expect(logError).toHaveBeenCalledWith('Search failed:', error);
   });
 });

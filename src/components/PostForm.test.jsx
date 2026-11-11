@@ -6,6 +6,13 @@ import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery } from '../test/supabaseMock';
 import { uploadPostImage, deletePostImage } from '../lib/postImages';
+import { logError } from '../lib/errorReporting';
+
+// The real logging is kept (console and all); the test only watches what it is asked to log
+vi.mock('../lib/errorReporting', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, logError: vi.fn(actual.logError) };
+});
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { from: vi.fn() },
@@ -121,6 +128,7 @@ describe('PostForm', () => {
     expect(box()).toHaveValue('keep me');
     expect(onPosted).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith('Post insert failed:', expect.objectContaining({ code: '23514' }));
+    expect(logError).toHaveBeenCalledWith('Post insert failed:', expect.objectContaining({ code: '23514' }));
   });
 
   describe('a picture in the post', () => {
@@ -344,6 +352,7 @@ describe('PostForm', () => {
       await screen.findByRole('alert');
 
       expect(consoleError).not.toHaveBeenCalled();
+      expect(logError).not.toHaveBeenCalled(); // an expected limit, not a bug to be told about
     });
 
     it('goes away when the next attempt works', async () => {

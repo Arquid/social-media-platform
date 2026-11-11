@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Box, CircularProgress, Typography, Button, Alert, Stack } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { logError } from '../lib/errorReporting';
 import PostCard from '../components/PostCard';
 import PageTitle from '../components/PageTitle';
 
@@ -11,7 +12,7 @@ async function fetchPost(id) {
     .select('*')
     .eq('id', id)
     .maybeSingle();
-  if (error) console.error('Post query failed:', error);
+  if (error) logError('Post query failed:', error);
   return { data, error };
 }
 

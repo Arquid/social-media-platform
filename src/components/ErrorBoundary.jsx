@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { Box, Typography, Button, Stack } from '@mui/material';
+import { reportError } from '../lib/errorReporting';
 
 function isOutdatedAppError(error) {
   return /dynamically imported module|Loading chunk|Importing a module script failed/i.test(
@@ -16,6 +17,9 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Unhandled error in the interface:', error, info.componentStack);
+    if (!isOutdatedAppError(error)) {
+      reportError(error, 'interface', { componentStack: info.componentStack });
+    }
   }
 
   reset = () => {

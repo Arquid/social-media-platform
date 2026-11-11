@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Sentry is loaded only when error reporting is on. Without this the dev server finds it late,
+  // optimizes it while the page is open and reloads the page once.
+  optimizeDeps: { include: ['@sentry/react'] },
   build: {
     rolldownOptions: {
       output: {

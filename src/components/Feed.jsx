@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { CircularProgress, Typography, Box, Alert, Button } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { logError } from '../lib/errorReporting';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -22,7 +23,7 @@ async function fetchPosts({ authorId, followingOnly, beforeId }) {
 
   const { data, error } = await query;
   if (error) {
-    console.error('Feed query failed:', error);
+    logError('Feed query failed:', error);
     return { error };
   }
   return { data };
@@ -35,7 +36,7 @@ async function fetchPostById(id, view = 'posts_feed') {
     .select('*')
     .eq('id', id)
     .maybeSingle();
-  if (error) console.error('Post refresh failed:', error);
+  if (error) logError('Post refresh failed:', error);
   return { data, error };
 }
 
