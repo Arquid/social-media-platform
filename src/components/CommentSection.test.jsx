@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CommentSection from './CommentSection';
 import { supabase } from '../lib/supabaseClient';
@@ -421,6 +421,49 @@ describe('CommentSection', () => {
 
       expect(input()).toHaveValue('do not lose me');
       expect(sendButton()).toBeEnabled();
+    });
+  });
+
+  describe('reporting a comment', () => {
+    const reportButtons = () => screen.queryAllByRole('button', { name: 'Report comment' });
+
+    it('has a Report button on the comments of other people, and not on your own', async () => {
+      mockTable({ comments: [{ ...existing[0], user_id: TEST_USER.id }, existing[1]] });
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('First!');
+
+      expect(reportButtons()).toHaveLength(1);
+      const row = screen.getByText('First!').closest('div');
+      expect(within(row).getByRole('button', { name: 'Report comment' })).toBeInTheDocument();
+      const mine = screen.getByText('Nice post').closest('div');
+      expect(within(mine).queryByRole('button', { name: 'Report comment' })).not.toBeInTheDocument();
+    });
+
+    it('opens the report of that comment and sends it with the id of the comment only', async () => {
+      mockTable();
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('First!');
+
+      await userEvent.click(within(screen.getByText('First!').closest('div')).getByRole('button', { name: 'Report comment' }));
+      const dialog = screen.getByRole('dialog', { name: 'Report this comment' });
+      await userEvent.click(within(dialog).getByRole('radio', { name: 'Spam' }));
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Send report' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(supabase.from).toHaveBeenCalledWith('reports');
+      expect(insertQuery.insert).toHaveBeenCalledWith({ reporter_id: TEST_USER.id, comment_id: 1, reason: 'spam', details: null });
+    });
+
+    it('the dialog can be closed again, and does not stay open for the next comment', async () => {
+      mockTable();
+      renderWithProviders(<CommentSection postId={7} />);
+      await screen.findByText('First!');
+      await userEvent.click(reportButtons()[0]);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(insertQuery.insert).not.toHaveBeenCalled();
     });
   });
 });

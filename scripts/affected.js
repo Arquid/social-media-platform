@@ -18,13 +18,14 @@ export const DATABASE_SPECS = [
 // [ which files, which tests ]. The first matching rule of a file is not the only one: all rules count.
 export const RULES = [
   // --- the pages of the app ---
-  [/^src\/components\/PostCard\.jsx$/, ['social', 'optimistic-like', 'post-editing-ui', 'post-images-ui', 'realtime-filters', 'accessibility']],
+  [/^src\/components\/PostCard\.jsx$/, ['abuse-ui', 'social', 'optimistic-like', 'post-editing-ui', 'post-images-ui', 'realtime-filters', 'accessibility']],
   [/^src\/components\/PostForm\.jsx$/, ['social', 'own-post', 'post-images-ui', 'rate-limit-ui', 'accessibility']],
-  [/^src\/components\/CommentSection\.jsx$/, ['social', 'pagination', 'post-editing-ui', 'post-images-ui', 'rate-limit-ui', 'realtime-filters', 'accessibility']],
+  [/^src\/components\/CommentSection\.jsx$/, ['abuse-ui', 'social', 'pagination', 'post-editing-ui', 'post-images-ui', 'rate-limit-ui', 'realtime-filters', 'accessibility']],
   [/^src\/components\/Feed\.jsx$/, ['social', 'own-post', 'following-feed', 'realtime-filters', 'optimistic-like', 'post-editing-ui', 'pagination']],
   [/^src\/components\/Navbar\.jsx$/, ['auth', 'social', 'notifications', 'search-ui', 'theme-and-time', 'accessibility']],
   [/^src\/components\/(FollowButton)\.jsx$/, ['social', 'following-feed', 'accessibility']],
   [/^src\/components\/(EditProfileDialog|UserAvatar)\.jsx$/, ['profile', 'account-deletion', 'post-images-ui', 'accessibility']],
+  [/^src\/components\/(BlockButton|ReportDialog)\.jsx$/, ['abuse-ui', 'abuse', 'accessibility']],
   [/^src\/components\/DeleteAccountDialog\.jsx$/, ['account-deletion', 'accessibility']],
   [/^src\/components\/ErrorBoundary\.jsx$/, ['errors', 'error-reporting', 'accessibility']],
   [/^src\/components\/(PageTitle|ProtectedRoute)\.jsx$/, ['errors', 'auth', 'accessibility']],
@@ -34,7 +35,7 @@ export const RULES = [
   [/^src\/pages\/Home\.jsx$/, ['social', 'own-post', 'following-feed', 'accessibility']],
   [/^src\/pages\/Notifications\.jsx$/, ['notifications', 'pagination', 'post-page', 'social', 'accessibility']],
   [/^src\/pages\/PostPage\.jsx$/, ['post-page', 'post-editing-ui', 'realtime-filters', 'pagination', 'errors', 'accessibility']],
-  [/^src\/pages\/Profile\.jsx$/, ['profile', 'account-deletion', 'post-editing-ui', 'accessibility']],
+  [/^src\/pages\/Profile\.jsx$/, ['abuse-ui', 'profile', 'account-deletion', 'post-editing-ui', 'accessibility']],
   [/^src\/pages\/Search\.jsx$/, ['search-ui', 'pagination', 'accessibility']],
   [/^src\/pages\/NotFound\.jsx$/, ['errors', 'accessibility']],
   [/^src\/App\.jsx$/, ['errors', 'auth', 'password-reset', 'accessibility']],
@@ -43,6 +44,7 @@ export const RULES = [
   // --- helpers used by the pages ---
   [/^src\/lib\/avatars\.js$/, ['profile', 'account-deletion', 'accessibility']],
   [/^src\/lib\/postImages\.js$/, ['post-images-ui', 'account-deletion']],
+  [/^src\/lib\/moderation\.js$/, ['abuse-ui', 'abuse']],
   [/^src\/lib\/search\.js$/, ['search-ui', 'pagination', 'error-reporting']],
   [/^src\/lib\/errors\.js$/, ['rate-limit-ui']],
   [/^src\/lib\/errorReporting\.js$/, ['error-reporting', 'errors', 'search-ui']],
@@ -67,6 +69,7 @@ export const RULES = [
   [/migrations\/\d+_pagination\.sql$/, ['pagination', 'search', 'indexes', 'privileges']],
   [/migrations\/\d+_edit_posts\.sql$/, ['edit-post', 'post-editing-ui', 'privileges', 'following-feed']],
   [/migrations\/\d+_post_images\.sql$/, ['post-images', 'post-images-ui', 'privileges', 'following-feed', 'account-deletion']],
+  [/migrations\/\d+_abuse_protection\.sql$/, ['abuse', 'privileges', 'indexes', 'rate-limit', 'notifications', 'following-feed', 'post-page', 'account-deletion', 'social']],
 ];
 
 // Files that change nothing about how the app works

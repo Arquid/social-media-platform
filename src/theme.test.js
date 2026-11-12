@@ -56,6 +56,16 @@ describe('theme', () => {
       // "dark" is the color MUI uses for the button under the mouse
       expect(contrastOfText(palette().primary.contrastText, palette().primary.dark)).toBeGreaterThanOrEqual(READABLE);
     });
+
+    it('is readable: red text (Delete account, Block) on the page and on cards', () => {
+      expect(getContrastRatio(palette().error.main, palette().background.default)).toBeGreaterThanOrEqual(READABLE);
+      expect(getContrastRatio(palette().error.main, palette().background.paper)).toBeGreaterThanOrEqual(READABLE);
+    });
+
+    it('is readable: text on a filled red button (the "Block" question), also while the mouse is over it', () => {
+      expect(contrastOfText(palette().error.contrastText, palette().error.main)).toBeGreaterThanOrEqual(READABLE);
+      expect(contrastOfText(palette().error.contrastText, palette().error.dark)).toBeGreaterThanOrEqual(READABLE);
+    });
   });
 
   it('has a dark page background and a light one', () => {

@@ -1,15 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Stack, CircularProgress, Button } from '@mui/material';
+import { Paper, Typography, Box, Stack, CircularProgress, Button, Alert } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { fetchIsBlocked } from '../lib/moderation';
 import { useAuth } from '../hooks/useAuth';
 import FollowButton from '../components/FollowButton';
+import BlockButton from '../components/BlockButton';
+import ReportDialog from '../components/ReportDialog';
 import Feed from '../components/Feed';
 import UserAvatar from '../components/UserAvatar';
 import EditProfileDialog from '../components/EditProfileDialog';
 import DeleteAccountDialog from '../components/DeleteAccountDialog';
 
-async function fetchProfile(username) {
+async function fetchProfile(username, userId) {
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
@@ -18,13 +21,15 @@ async function fetchProfile(username) {
 
   if (!profile) return null;
 
-  const [followers, following] = await Promise.all([
+  const [followers, following, blocked] = await Promise.all([
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
+    profile.id === userId ? false : fetchIsBlocked(userId, profile.id),
   ]);
 
   return {
     profile,
+    blocked,
     counts: { followers: followers.count ?? 0, following: following.count ?? 0 },
   };
 }
@@ -34,20 +39,21 @@ function ProfileView({ username }) {
   const [result, setResult] = useState(undefined);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const reload = useCallback(async () => {
-    setResult(await fetchProfile(username));
-  }, [username]);
+    setResult(await fetchProfile(username, user.id));
+  }, [username, user.id]);
 
   useEffect(() => {
     let active = true;
-    fetchProfile(username).then((data) => {
+    fetchProfile(username, user.id).then((data) => {
       if (active) setResult(data);
     });
     return () => {
       active = false;
     };
-  }, [username]);
+  }, [username, user.id]);
 
   if (result === undefined) {
     return <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress aria-label="Loading" /></Box>;
@@ -55,7 +61,7 @@ function ProfileView({ username }) {
 
   if (result === null) return <Typography component="h1">User not found.</Typography>;
 
-  const { profile, counts } = result;
+  const { profile, counts, blocked } = result;
   const isOwnProfile = profile.id === user.id;
 
   return (
@@ -83,7 +89,19 @@ function ProfileView({ username }) {
           {isOwnProfile ? (
             <Button variant="outlined" onClick={() => setEditing(true)}>Edit profile</Button>
           ) : (
-            <FollowButton targetId={profile.id} onChange={reload} />
+            <Stack spacing={1} sx={{ alignItems: 'flex-end' }}>
+              {blocked ? (
+                <BlockButton targetId={profile.id} username={profile.username} blocked onChange={reload} />
+              ) : (
+                <>
+                  <FollowButton targetId={profile.id} onChange={reload} />
+                  <Stack direction="row" spacing={0.5}>
+                    <BlockButton targetId={profile.id} username={profile.username} blocked={false} onChange={reload} />
+                    <Button size="small" onClick={() => setReporting(true)}>Report user</Button>
+                  </Stack>
+                </>
+              )}
+            </Stack>
           )}
         </Box>
         {isOwnProfile && (
@@ -106,7 +124,20 @@ function ProfileView({ username }) {
       {deleting && (
         <DeleteAccountDialog username={profile.username} onClose={() => setDeleting(false)} />
       )}
-      <Feed authorId={profile.id} />
+      {reporting && (
+        <ReportDialog
+          title={`Report @${profile.username}`}
+          target={{ userId: profile.id }}
+          onClose={() => setReporting(false)}
+        />
+      )}
+      {blocked ? (
+        <Alert severity="info">
+          You have blocked @{profile.username}. Their posts and comments are hidden from you.
+        </Alert>
+      ) : (
+        <Feed authorId={profile.id} />
+      )}
     </>
   );
 }

@@ -8,12 +8,14 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
 import { supabase } from '../lib/supabaseClient';
 import { getPostImageUrl, deletePostImage } from '../lib/postImages';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import CommentSection from './CommentSection';
 import UserAvatar from './UserAvatar';
+import ReportDialog from './ReportDialog';
 import TimeAgo from './TimeAgo';
 
 const MAX_POST_LENGTH = 500;
@@ -23,6 +25,7 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
   const { showToast } = useToast();
   const [showComments, setShowComments] = useState(defaultShowComments);
   const [editing, setEditing] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -183,6 +186,13 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
             </IconButton>
           </Box>
         )}
+        {!isOwner && (
+          <Box sx={{ ml: 'auto' }}>
+            <IconButton onClick={() => setReporting(true)} aria-label="Report post">
+              <FlagOutlinedIcon />
+            </IconButton>
+          </Box>
+        )}
       </CardActions>
 
       <Collapse in={showComments} unmountOnExit>
@@ -190,6 +200,9 @@ export default function PostCard({ post, onChange, onDelete, defaultShowComments
           <CommentSection postId={post.id} onChange={() => onChange?.(post.id)} />
         </Box>
       </Collapse>
+      {reporting && (
+        <ReportDialog title="Report this post" target={{ postId: post.id }} onClose={() => setReporting(false)} />
+      )}
     </Card>
   );
 }

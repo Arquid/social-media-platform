@@ -111,6 +111,56 @@ for (const scheme of ['light', 'dark']) {
       // (the buttons still fade a little after the dialog has opened: look again until it is calm)
       await expect.poll(() => problemsOn(page), { message: 'edit profile dialog' }).toEqual([]);
     });
+
+    test('blocking and reporting: the report buttons, both dialogs and the page of a blocked person', async ({ page, request }) => {
+      const user = newUser('a11yblock');
+      await signUp(page, user);
+      const other = await createUser(request, 'a11yother');
+      const text = `a post to report ${other.username}`;
+      const made = await request.post(`${API}/rest/v1/posts`, {
+        headers: authHeaders(other, { 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        data: { user_id: other.id, content: text },
+      });
+      const [post] = await made.json();
+      await request.post(`${API}/rest/v1/comments`, {
+        headers: authHeaders(other, { 'Content-Type': 'application/json' }),
+        data: { post_id: post.id, user_id: other.id, content: 'a comment to report' },
+      });
+
+      // The feed with the report button, and the comments with theirs
+      await page.goto('/');
+      await expect(postCard(page, text)).toBeVisible();
+      await postCard(page, text).getByRole('button', { name: 'Show comments' }).click();
+      await expect(page.getByRole('button', { name: 'Report comment' })).toBeVisible();
+      expect(await problemsOn(page), 'feed with the report buttons').toEqual([]);
+
+      // Each dialog, once its opening animation has ended
+      const calm = async () => {
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await expect(page.locator('.MuiDialog-paper')).toHaveCSS('opacity', '1');
+        await expect(page.locator('.MuiDialog-paper')).toHaveCSS('transform', 'none');
+      };
+      await page.getByRole('button', { name: 'Report comment' }).click();
+      await calm();
+      await expect.poll(() => problemsOn(page), { message: 'report dialog' }).toEqual([]);
+      await page.getByRole('radio', { name: 'Spam' }).check();
+      await expect.poll(() => problemsOn(page), { message: 'report dialog with a reason' }).toEqual([]);
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+
+      await page.goto(`/profile/${other.username}`);
+      await expect(page.getByRole('button', { name: 'Report user' })).toBeVisible();
+      expect(await problemsOn(page), 'profile with block and report').toEqual([]);
+      await page.getByRole('button', { name: 'Block', exact: true }).click();
+      await calm();
+      await expect.poll(() => problemsOn(page), { message: 'block question' }).toEqual([]);
+      await page.getByRole('dialog').getByRole('button', { name: 'Block', exact: true }).click();
+
+      await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
+      await expect(page.locator('h1')).toHaveCount(1);
+      // (the green message about the block still fades in: look again until it is calm)
+      await expect.poll(() => problemsOn(page), { message: 'profile of a blocked person' }).toEqual([]);
+    });
   });
 }
 

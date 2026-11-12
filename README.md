@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-574_unit_%2B_236_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-624_unit_%2B_271_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -39,13 +39,14 @@
 | **Search** | `/search` finds people by username or display name (any letter case, part of a word), ranked and limited to 20. The text lives in the address (`/search?q=anna`), so reload, back button and shared links work |
 | **Real time** | Feeds, comments, post pages and the notification badge update live. Only the changed post is fetched, the feed is not reloaded. Each page asks Realtime for **only what it shows**: the feed for the likes and comments of its (at most 100) posts, a post page for its own post, a profile page for that user's new posts. Likes on posts that are not on the screen never reach the browser |
 | **Pagination** | Everything long comes 20 at a time with a button for more: the feeds, **notifications** and **comments** ("Load more", paged by id so nothing is skipped or shown twice, newest first, new ones go on top) and the **search** ("Show more", the database function takes a page size and a start). A page costs the same however long the list is, because each list has an index made for it |
+| **Block and report** | **Block** from a profile (after a question): the person can no longer like, comment on or follow you (HTTP 403, a short neutral message), you stop following each other, and **you no longer see their posts, comments or notifications** anywhere: feeds, post page, counters and live updates. The profile says so and offers **Unblock**. Only you can see your blocks. **Report** a post, a comment or a person (spam, harassment, hate, violence, other, with optional details): the database records who is reported (it cannot be forged) and a copy of the text, even if the post is later edited or deleted. Reports cannot be read through the API; read them in the Supabase dashboard (table `reports`) |
 | **Relative times** | "just now", "5 minutes ago", "yesterday", then a date. The exact time is in the tooltip and the text keeps up with the clock |
 
 ### Quality
 | | |
 |---|---|
 | **Security** | Row Level Security on every table **plus least privilege**: a visitor has no privileges at all, a user can change only what the app needs (see [Database](#database)) |
-| **Rate limits** | At most 10 posts and 20 comments per user per minute, enforced in the database (HTTP 429, code `PT429`). The post form shows a yellow warning and keeps the text |
+| **Rate limits** | Per user and minute, enforced in the database (HTTP 429, code `PT429`): 10 posts, 20 comments, **60 likes, 30 follows, 20 blocks and 5 reports**. The post form shows a yellow warning and keeps the text; the other actions show the message in a toast |
 | **Performance** | Every foreign key and feed query has an index. With 100 000 posts, 200 000 likes and 100 000 comments the first page of the feed takes 5 ms (1.5 s without the likes index) |
 | **Accessibility** | One first level heading per page, `main` and `nav` landmarks, named spinners. [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.0 / 2.1 A and AA) finds **zero problems** in the light and the dark theme |
 | **Theme and layout** | Responsive layout (Material UI). Light and dark theme, following the device until the user chooses (also before logging in). Both are checked for readable contrast |
@@ -144,8 +145,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **574** (549 app, 25 for the test selection) | Mocked Supabase, no backend. **98.3 %** of the statements and 99.9 % of the lines of `src/` are covered | `npm test` |
-| End-to-end | **236** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **624** (599 app, 25 for the test selection) | Mocked Supabase, no backend. **98.4 %** of the statements and 99.8 % of the lines of `src/` are covered | `npm test` |
+| End-to-end | **271** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 ### Fast check of a change
@@ -174,6 +175,7 @@ Tests are also checked by **mutation**: a feature is broken on purpose and the m
 - **Posts and feed:** post cards (like, unlike, delete, avatars, error toasts, optimistic likes: instant update, undo on failure, no double counting), the feed (pagination cursor, duplicate protection, the Following tab and its view, new posts, the realtime filters: only the posts on the screen, at most 100, one new subscription for a burst of posts, profile page filter, cleanup), the post form and comment section (saving, double submit, errors, the rate limit as a yellow warning that keeps the text), the home page (a new post at the top at once, two in a row, no jump after a tab switch)
 - **Account deletion:** the confirmation (exact username needed), the order (picture, then account), a failing picture removal or database stops everything, locked while working, double clicks, only on your own profile
 - **Pages:** profile, post page, notifications, search (typing pause, one search per pause, spinner, empty and error states, ignoring slow answers, text in the address), 404, login, sign up ("Check your email"), forgot and reset password (the exact return address, same answer for any address, errors, mismatching passwords, double clicks)
+- **Block and report:** the library (block, unblock, report a post, comment or person, the duplicate is not an error), the report dialog (reason needed, details limit, success in green, errors inside the dialog with the text kept, locked while sending), the block question (cancel and Escape block nobody, success and error messages, locked while working), the profile of a blocked person (note, Unblock, no feed, no Follow), the Report buttons (only on other people's posts and comments), and the red button of the dark theme (contrast)
 - **Error reporting:** off without an address and Sentry not even loaded, private settings (no personal data, no tracing or replay), the cleaning of addresses, events and breadcrumbs, readable reports for database errors (code kept, row details left out), reports made while Sentry loads, the limit of 20, never throwing, reports from the error boundary (not for outdated versions) and from the failed queries (not for rate limits)
 - **App shell:** route protection, routing for unknown addresses, error boundary (catching, "Try again", reset on navigation, outdated version detection), navigation bar, theme toggle and both color schemes (WCAG contrast)
 - **Structure:** one first level heading per page in every state, `main` and `nav` areas, spinner names, `autocomplete` attributes
@@ -209,6 +211,8 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `search-ui.spec.js` | The search in the browser: one search after fast typing, text in the address, reload and back button |
 | `password-reset.spec.js` | Reads emails from the local inbox and follows the link: new password works, old does not, link works once, expired link, unknown address gets the same answer and no email |
 | `rate-limit.spec.js` | HTTP 429 on the 11th post and 21st comment, separate quotas, parallel and bulk requests, tampering with the log, backdated posts, quota returns after a minute |
+| `abuse.spec.js` | Straight against the database: the 61st like, 31st follow, 21st block and 6th report are refused with 429 (deleting does not give the quota back, per user and per kind, back after a minute); blocking and unblocking, only your own blocks are visible, no blocking in another name or yourself or twice; a blocked user is refused 403 when liking, commenting or following (nothing stored, no quota used), and the blocker cannot follow them either; the follows end in both directions; the blocker does not see the posts (both feeds, by id), the comments (and the counter) or the notifications of the blocked user, others and the blocked user see everything; reports: a post, comment or person, the reported person and the copy of the text come from the database (cannot be forged), the copy stays after an edit and the report after a delete, duplicates, wrong reports, nobody can read, change or delete reports |
+| `abuse-ui.spec.js` | In the browser: the block question (cancel blocks nobody), the note, no Follow and no feed for a blocked person, the same after a reload, in the home feed, and Unblock; the follows end and the blocked person is refused by the page (follow, like, comment) with a short message; the blocker is **sent no live posts or comments** of the blocked person but still those of others; reporting a post, comment and person with the owner reading who, what, why and the copy; no Report button on your own things, and a cancelled report sends nothing |
 | `rate-limit-ui.spec.js` | The same limits through the app: yellow warning, text kept, works again after a minute |
 | `privileges.spec.js` | Database privileges compared with a list (a new table without a decision fails), forbidden operations tried through the API, normal operations still work |
 | `indexes.spec.js` | Expected indexes exist, every foreign key has a usable index, query plans use indexes on tables with tens of thousands of rows |
@@ -267,6 +271,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 | `pagination` | Indexes for paging notifications and comments by id (they replace the older ones), and `search_profiles` with a page size and a start |
 | `edit_posts` | Editing posts: `posts.edited_at` (set by a trigger, only when the text really changes), the policy "posts update own", the privilege to change the column `content` only, and the new column in the feed views |
 | `post_images` | Pictures in posts: the public bucket `post-images` (5 MB, JPEG/PNG/WebP, only the owner's own folder), the column `posts.image_path` (must point into the author's own folder, cannot be changed afterwards) and the new column in the feed views |
+| `abuse_protection` | Rate limits for likes, follows, blocks and reports (the rate limit function now also works for tables whose user column has another name); the table `blocks` with its policies, the triggers that refuse likes, comments and follows across a block and end the follows, and policies that hide the blocked user's posts, comments and notifications from the blocker; the table `reports` (insert only, six columns, nobody can read it through the API) with a trigger that fills in the reported person and a copy of the text |
 
 > The username constraint is `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles that break the rule, fix them and run `alter table profiles validate constraint profiles_username_format;`.
 
@@ -279,10 +284,12 @@ Run them in filename order. On a fresh local database they are applied automatic
   |---|---|
   | Visitor (`anon`) | Nothing. The API answers 401, not an empty list |
   | Logged-in user | Read; add and delete own posts, comments, likes and follows; change the **text** of own posts; edit own profile; set the `read` flag of own notifications; delete own account (`delete_my_account()`) |
-  | Nobody through the API | Change the author, time or edit time of a post; edit likes, follows or comments; delete profiles; touch the rate limit log; call trigger functions |
+  | Nobody through the API | Change the author, time or edit time of a post; edit likes, follows or comments; delete profiles; touch the rate limit log; call trigger functions; read, change or delete reports; see who has blocked them |
 
 - New tables, sequences and functions are **closed by default** until a migration grants access, and a test fails if a table has no decision.
-- Rate limits live in triggers, so parallel requests, bulk inserts, deleting posts and backdated posts cannot get around them.
+- Rate limits live in triggers, so parallel requests, bulk inserts, deleting posts and backdated posts cannot get around them. Deleting a like or a follow does not give the quota back.
+- **Blocking is enforced by the database**, not by the pages: the policies of `posts`, `comments` and `notifications` hide the blocked user's rows (every view, count and realtime message follows), and triggers refuse the blocked user's actions.
+- **CAPTCHA** for the sign up is not in the code: it is switched on in the Supabase dashboard (Authentication -> Attack Protection) together with Turnstile or hCaptcha, when the app is published.
 
 ## Project structure
 
@@ -322,7 +329,7 @@ The app can be deployed to Vercel or Netlify.
 
 ## Ideas for future development
 
-- Images in posts (Supabase Storage)
-- Avatars next to comments and in the notification list
+- Hide blocked people from the search results
+- Avatars in the notification list
 - Links from feed posts (for example from the timestamp) to the post page
 - Infinite scroll instead of the "Load more" button

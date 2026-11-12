@@ -41,6 +41,11 @@ test.describe('indexes exist', () => {
       'comments_post_id_id_idx',
       'notifications_actor_id_idx',
       'notifications_post_id_idx',
+      'blocks_blocked_idx',
+      'reports_reporter_idx',
+      'reports_reported_user_idx',
+      'reports_post_idx',
+      'reports_comment_idx',
     ]) {
       expect(names, `index ${index}`).toContain(index);
     }

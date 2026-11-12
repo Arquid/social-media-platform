@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PostCard from './PostCard';
 import { supabase } from '../lib/supabaseClient';
@@ -419,5 +419,44 @@ describe('PostCard', () => {
     expect(supabase.from).toHaveBeenCalledWith('posts');
     expect(query.eq).toHaveBeenCalledWith('id', 7);
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(7));
+  });
+
+  describe('reporting', () => {
+    const reportButton = () => screen.queryByRole('button', { name: 'Report post' });
+
+    it('has a Report button on the posts of other people, and not on your own', () => {
+      const { unmount } = renderWithProviders(<PostCard post={basePost} />);
+      expect(reportButton()).toBeInTheDocument();
+      unmount();
+
+      renderWithProviders(<PostCard post={{ ...basePost, user_id: TEST_USER.id }} />);
+      expect(reportButton()).not.toBeInTheDocument();
+    });
+
+    it('opens the report of this post and sends it with the id of the post only', async () => {
+      const query = createQuery({ error: null });
+      supabase.from.mockReturnValue(query);
+      renderWithProviders(<PostCard post={basePost} />);
+
+      await userEvent.click(reportButton());
+      const dialog = screen.getByRole('dialog', { name: 'Report this post' });
+      await userEvent.click(within(dialog).getByRole('radio', { name: 'Hate speech' }));
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Send report' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(supabase.from).toHaveBeenCalledWith('reports');
+      expect(query.insert).toHaveBeenCalledWith({ reporter_id: TEST_USER.id, post_id: 7, reason: 'hate', details: null });
+      expect(await screen.findByText('Thank you. Your report was sent.')).toBeInTheDocument();
+    });
+
+    it('closes the dialog without sending when the user cancels', async () => {
+      renderWithProviders(<PostCard post={basePost} />);
+      await userEvent.click(reportButton());
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
   });
 });

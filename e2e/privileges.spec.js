@@ -11,6 +11,7 @@ const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'R
 
 // What a logged-in user may do, per table or view. Everything not listed is forbidden.
 const EXPECTED = {
+  blocks: ['DELETE', 'INSERT', 'SELECT'],
   comments: ['DELETE', 'INSERT', 'SELECT'],
   follows: ['DELETE', 'INSERT', 'SELECT'],
   likes: ['DELETE', 'INSERT', 'SELECT'],
@@ -20,6 +21,7 @@ const EXPECTED = {
   posts_following_feed: ['SELECT'],
   profiles: ['SELECT', 'UPDATE'],
   rate_limit_events: [],
+  reports: [], // INSERT of six columns only (checked below); nobody can read them through the API
 };
 
 function lines(sql) {
@@ -75,6 +77,20 @@ test.describe('privileges of the database roles', () => {
     `);
 
     expect(columns).toEqual(['content']);
+  });
+
+  test('a user can send a report with the six columns of the form, and nothing else', () => {
+    const columns = (privilege) => lines(`
+      select attname from pg_attribute
+      where attrelid = 'public.reports'::regclass and attnum > 0 and not attisdropped
+        and has_column_privilege('authenticated', attrelid, attname, '${privilege}')
+      order by 1;
+    `);
+
+    expect(columns('INSERT')).toEqual(['comment_id', 'details', 'post_id', 'reason', 'reported_user_id', 'reporter_id']);
+    // The copy of the text, the id and the time are made by the database; nothing can be read back or changed
+    expect(columns('SELECT')).toEqual([]);
+    expect(columns('UPDATE')).toEqual([]);
   });
 
   test('a visitor who is not logged in has no privileges at all, not even on single columns', () => {
@@ -169,7 +185,7 @@ test.describe('what the API says to a user who does something that is not allowe
   test('nobody can call the trigger functions through the API', async ({ request }) => {
     const user = await createUser(request, 'privrpc');
 
-    for (const name of ['notify_like', 'notify_comment', 'notify_follow', 'handle_new_user', 'enforce_rate_limit']) {
+    for (const name of ['notify_like', 'notify_comment', 'notify_follow', 'handle_new_user', 'enforce_rate_limit', 'refuse_blocked_interaction', 'remove_follows_of_block', 'fill_report']) {
       const asUser = await request.post(`${API}/rest/v1/rpc/${name}`, { headers: authHeaders(user, json), data: {} });
       const asVisitor = await request.post(`${API}/rest/v1/rpc/${name}`, { headers: { apikey: KEY, ...json }, data: {} });
 

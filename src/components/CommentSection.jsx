@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Link, Stack, IconButton } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
 import { supabase } from '../lib/supabaseClient';
 import { isRateLimited } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import UserAvatar from './UserAvatar';
+import ReportDialog from './ReportDialog';
 
 const PAGE_SIZE = 20;
 
@@ -33,6 +35,7 @@ export default function CommentSection({ postId, onChange }) {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [text, setText] = useState('');
+  const [reportingId, setReportingId] = useState(null);
 
   // Lets the handlers see what is on the screen without subscribing again
   const commentsRef = useRef([]);
@@ -157,9 +160,17 @@ export default function CommentSection({ postId, onChange }) {
                 <DeleteOutlineIcon fontSize="inherit" />
               </IconButton>
             )}
+            {c.user_id !== user.id && (
+              <IconButton size="small" aria-label="Report comment" onClick={() => setReportingId(c.id)}>
+                <FlagOutlinedIcon fontSize="inherit" />
+              </IconButton>
+            )}
           </Box>
         ))}
       </Stack>
+      {reportingId && (
+        <ReportDialog title="Report this comment" target={{ commentId: reportingId }} onClose={() => setReportingId(null)} />
+      )}
       {hasMore && (
         <Button size="small" onClick={loadMore} disabled={loadingMore} sx={{ mt: 1 }}>
           {loadingMore ? 'Loading...' : 'Load more comments'}
