@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Feed from './Feed';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { installFakeIntersectionObserver } from '../test/fakeIntersectionObserver';
 import { createQuery, createChannel, makePosts } from '../test/supabaseMock';
 import { logError } from '../lib/errorReporting';
 
@@ -50,6 +51,59 @@ describe('Feed', () => {
     renderWithProviders(<Feed />);
 
     expect(await screen.findByText(/could not load posts: network down/i)).toBeInTheDocument();
+  });
+
+  describe('infinite scroll', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('loads the next page by itself when the button comes near the screen, without a click', async () => {
+      const scroll = installFakeIntersectionObserver();
+      const second = createQuery({ data: makePosts(5, 30), error: null });
+      queueQueries(createQuery({ data: makePosts(20, 50), error: null }), second);
+      renderWithProviders(<Feed />);
+      await screen.findByText('Post 31');
+      expect(supabase.from).toHaveBeenCalledTimes(1);
+
+      await scroll.comeNearTheScreen();
+
+      expect(await screen.findByText('Post 26')).toBeInTheDocument();
+      expect(second.lt).toHaveBeenCalledWith('id', 31);
+      expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+    });
+
+    it('does not load before the button is near the screen', async () => {
+      installFakeIntersectionObserver();
+      queueQueries(createQuery({ data: makePosts(20, 50), error: null }));
+      renderWithProviders(<Feed />);
+
+      await screen.findByText('Post 31');
+
+      expect(supabase.from).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops after an error: one toast, nothing more is asked until the button is pressed', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const scroll = installFakeIntersectionObserver();
+      queueQueries(
+        createQuery({ data: makePosts(20, 50), error: null }),
+        createQuery({ data: null, error: { message: 'timeout' } }),
+        createQuery({ data: makePosts(5, 30), error: null })
+      );
+      renderWithProviders(<Feed />);
+      await screen.findByText('Post 31');
+
+      await scroll.comeNearTheScreen();
+      expect(await screen.findByText('Could not load more posts: timeout')).toBeInTheDocument();
+      await act(async () => {});
+
+      expect(supabase.from).toHaveBeenCalledTimes(2);
+      expect(scroll.watching()).toHaveLength(0);
+
+      await userEvent.click(screen.getByRole('button', { name: /load more/i }));
+      expect(await screen.findByText('Post 26')).toBeInTheDocument();
+    });
   });
 
   it('does not show "Load more" when everything fits on one page', async () => {

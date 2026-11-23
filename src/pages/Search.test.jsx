@@ -5,6 +5,7 @@ import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import Search from './Search';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { searchProfiles } from '../lib/search';
+import { installFakeIntersectionObserver } from '../test/fakeIntersectionObserver';
 
 vi.mock('../lib/search', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -288,6 +289,50 @@ describe('Search page', () => {
       }));
     const shown = () => screen.getAllByRole('listitem').map((item) => item.textContent);
     const showMore = () => screen.queryByRole('button', { name: 'Show more' });
+
+    describe('infinite scroll', () => {
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it('shows the next people by itself when the button comes near the screen', async () => {
+        const scroll = installFakeIntersectionObserver();
+        searchProfiles
+          .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+          .mockResolvedValueOnce({ users: people(5, 21), error: '', hasMore: false });
+        renderPage();
+        await typeAndWait('per');
+        await screen.findByText('Person 1');
+
+        await scroll.comeNearTheScreen();
+
+        expect(await screen.findByText('Person 25')).toBeInTheDocument();
+        expect(searchProfiles).toHaveBeenLastCalledWith('per', 20);
+        expect(showMore()).not.toBeInTheDocument();
+      });
+
+      it('stops after an error until the button is pressed', async () => {
+        const scroll = installFakeIntersectionObserver();
+        searchProfiles
+          .mockResolvedValueOnce({ users: people(20), error: '', hasMore: true })
+          .mockImplementationOnce(() => new Promise((resolve) => {
+            setTimeout(() => resolve({ users: [], error: 'timeout', hasMore: false }), 10);
+          }))
+          .mockResolvedValueOnce({ users: people(5, 21), error: '', hasMore: false });
+        renderPage();
+        await typeAndWait('per');
+        await screen.findByText('Person 1');
+
+        await scroll.comeNearTheScreen();
+        expect(await screen.findByText('Could not load more people: timeout')).toBeInTheDocument();
+        await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 20); }); });
+        expect(searchProfiles).toHaveBeenCalledTimes(2);
+        expect(scroll.watching()).toHaveLength(0);
+
+        await user.click(showMore());
+        expect(await screen.findByText('Person 25')).toBeInTheDocument();
+      });
+    });
 
     it('offers no button when the search found everything', async () => {
       searchProfiles.mockResolvedValue({ users: people(3), error: '', hasMore: false });

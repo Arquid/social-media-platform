@@ -112,6 +112,10 @@ test.describe('following feed (database view)', () => {
 });
 
 test('the Following tab shows the posts of 450 followed people and loads more', async ({ page }) => {
+  // The button is clicked here: a browser without IntersectionObserver (see infinite-scroll.spec.js for the scrolling)
+  await page.addInitScript(() => {
+    delete window.IntersectionObserver;
+  });
   const user = newUser('ffui');
   await signUp(page, user);
   const userId = runSql(`select id from profiles where username = '${user.username}';`).trim();

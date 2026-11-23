@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Notifications from './Notifications';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery, createChannel } from '../test/supabaseMock';
+import { installFakeIntersectionObserver } from '../test/fakeIntersectionObserver';
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
@@ -155,6 +156,44 @@ describe('Notifications page', () => {
       }));
     const names = () => screen.getAllByRole('link').map((link) => link.textContent.split(' ')[0]);
     const loadMoreButton = () => screen.queryByRole('button', { name: 'Load more' });
+
+    describe('infinite scroll', () => {
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it('loads the next 20 by itself when the button comes near the screen', async () => {
+        const scroll = installFakeIntersectionObserver();
+        mockNotifications(many(20, 40));
+        renderPage();
+        await screen.findByText('@fan40');
+        const next = createQuery({ data: many(5, 20), error: null });
+        supabase.from.mockReturnValueOnce(next);
+
+        await scroll.comeNearTheScreen();
+
+        expect(await screen.findByText('@fan16')).toBeInTheDocument();
+        expect(next.lt).toHaveBeenCalledWith('id', 21);
+        expect(loadMoreButton()).not.toBeInTheDocument();
+      });
+
+      it('stops after an error until the button is pressed', async () => {
+        const scroll = installFakeIntersectionObserver();
+        mockNotifications(many(20, 40));
+        renderPage();
+        await screen.findByText('@fan40');
+        supabase.from.mockReturnValueOnce(createQuery({ data: null, error: { message: 'timeout' } }));
+
+        await scroll.comeNearTheScreen();
+        expect(await screen.findByText('Could not load more notifications: timeout')).toBeInTheDocument();
+        await act(async () => {});
+        expect(scroll.watching()).toHaveLength(0);
+
+        supabase.from.mockReturnValueOnce(createQuery({ data: many(5, 20), error: null }));
+        await userEvent.click(loadMoreButton());
+        expect(await screen.findByText('@fan16')).toBeInTheDocument();
+      });
+    });
 
     it('offers more only when the first page was full', async () => {
       mockNotifications(many(19, 19));

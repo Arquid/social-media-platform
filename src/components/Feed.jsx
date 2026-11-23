@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { CircularProgress, Typography, Box, Alert, Button } from '@mui/material';
+import { CircularProgress, Typography, Box, Alert } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { logError } from '../lib/errorReporting';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PostCard from './PostCard';
+import LoadMore from './LoadMore';
 
 const PAGE_SIZE = 20;
 
@@ -91,7 +92,7 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
 
     if (result.error) {
       showToast(`Could not load more posts: ${result.error.message}`);
-      return;
+      return false;
     }
 
     // Skip posts that are already in the list (e.g. added by realtime)
@@ -100,6 +101,7 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
       return [...prev, ...result.data.filter((p) => !seen.has(p.id))];
     });
     setHasMore(result.data.length === PAGE_SIZE);
+    return true;
   }
 
   // A post the user just wrote: show it at once instead of waiting for realtime
@@ -221,13 +223,7 @@ export default function Feed({ authorId, followingOnly = false, newPostId = null
         <PostCard key={post.id} post={post} onChange={refreshPost} onDelete={removePost} />
       ))}
 
-      {hasMore && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <Button onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading...' : 'Load more'}
-          </Button>
-        </Box>
-      )}
+      {hasMore && <LoadMore onLoad={loadMore} loading={loadingMore} sx={{ mb: 2 }} />}
     </>
   );
 }

@@ -42,6 +42,15 @@ function writeNotifications(userId, postId, prefix, count) {
 
 const texts = (locator) => locator.allTextContents();
 
+// These tests click the buttons, which is what a browser without IntersectionObserver gets. In a browser
+// that has it, a button that is scrolled into view loads the next page by itself (see infinite-scroll.spec.js),
+// and clicking would load two pages. So here the browser has none.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    delete window.IntersectionObserver;
+  });
+});
+
 test.describe('notifications', () => {
   test('come 20 at a time, newest first, and new ones go on top', async ({ page, request }) => {
     const frames = listenToFrames(page);

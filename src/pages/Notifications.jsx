@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Paper, List, ListItem, ListItemButton, ListItemText, Typography, Box, Button } from '@mui/material';
+import { Paper, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import TimeAgo from '../components/TimeAgo';
 import PageTitle from '../components/PageTitle';
+import LoadMore from '../components/LoadMore';
 
 const MESSAGES = {
   like: 'liked your post',
@@ -72,13 +73,14 @@ export default function Notifications() {
 
     if (error) {
       showToast(`Could not load more notifications: ${error.message}`);
-      return;
+      return false;
     }
     setItems((prev) => {
       const seen = new Set(prev.map((n) => n.id));
       return [...prev, ...data.filter((n) => !seen.has(n.id))];
     });
     setHasMore(data.length === PAGE_SIZE);
+    return true;
   }
 
   useEffect(() => {
@@ -147,13 +149,7 @@ export default function Notifications() {
           ))}
         </List>
       </Paper>
-      {hasMore && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-          <Button onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading...' : 'Load more'}
-          </Button>
-        </Box>
-      )}
+      {hasMore && <LoadMore onLoad={loadMore} loading={loadingMore} sx={{ mt: 2 }} />}
     </>
   );
 }

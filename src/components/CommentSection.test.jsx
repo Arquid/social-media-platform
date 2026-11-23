@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CommentSection from './CommentSection';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders, TEST_USER } from '../test/renderWithProviders';
 import { createQuery, createChannel } from '../test/supabaseMock';
+import { installFakeIntersectionObserver } from '../test/fakeIntersectionObserver';
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -263,6 +264,41 @@ describe('CommentSection', () => {
     const ok = (data) => ({ data, error: null });
     // The paragraph also holds the name of the author, so take the "Comment 12" part
     const shown = () => screen.getAllByText(/Comment \d+$/).map((el) => el.textContent.match(/Comment \d+$/)[0]);
+
+    describe('infinite scroll', () => {
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it('loads the next 20 comments by itself when the button comes near the screen', async () => {
+        const scroll = installFakeIntersectionObserver();
+        mockPages(ok(makeComments(20, 40)), ok(makeComments(5, 20)));
+        renderWithProviders(<CommentSection postId={7} />);
+        await screen.findByText('Comment 40');
+
+        await scroll.comeNearTheScreen();
+
+        expect(await screen.findByText('Comment 16')).toBeInTheDocument();
+        expect(queries[1].lt).toHaveBeenCalledWith('id', 21);
+        expect(screen.queryByRole('button', { name: 'Load more comments' })).not.toBeInTheDocument();
+      });
+
+      it('stops after an error until the button is pressed', async () => {
+        const scroll = installFakeIntersectionObserver();
+        mockPages(ok(makeComments(20, 40)), { data: null, error: { message: 'network down' } }, ok(makeComments(5, 20)));
+        renderWithProviders(<CommentSection postId={7} />);
+        await screen.findByText('Comment 40');
+
+        await scroll.comeNearTheScreen();
+        expect(await screen.findByText('Could not load more comments: network down')).toBeInTheDocument();
+        await act(async () => {});
+        expect(supabase.from).toHaveBeenCalledTimes(2);
+        expect(scroll.watching()).toHaveLength(0);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Load more comments' }));
+        expect(await screen.findByText('Comment 16')).toBeInTheDocument();
+      });
+    });
 
     it('offers more comments only when the first page was full', async () => {
       mockPages(ok(makeComments(19, 19)));

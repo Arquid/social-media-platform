@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import UserAvatar from './UserAvatar';
 import ReportDialog from './ReportDialog';
+import LoadMore from './LoadMore';
 
 const PAGE_SIZE = 20;
 
@@ -63,13 +64,14 @@ export default function CommentSection({ postId, onChange }) {
 
     if (error) {
       showToast(`Could not load more comments: ${error.message}`);
-      return;
+      return false;
     }
     setComments((prev) => {
       const seen = new Set(prev.map((c) => c.id));
       return [...prev, ...data.filter((c) => !seen.has(c.id))];
     });
     setHasMore(data.length === PAGE_SIZE);
+    return true;
   }
 
   useEffect(() => {
@@ -172,9 +174,14 @@ export default function CommentSection({ postId, onChange }) {
         <ReportDialog title="Report this comment" target={{ commentId: reportingId }} onClose={() => setReportingId(null)} />
       )}
       {hasMore && (
-        <Button size="small" onClick={loadMore} disabled={loadingMore} sx={{ mt: 1 }}>
-          {loadingMore ? 'Loading...' : 'Load more comments'}
-        </Button>
+        <LoadMore
+          onLoad={loadMore}
+          loading={loadingMore}
+          label="Load more comments"
+          size="small"
+          align="start"
+          sx={{ mt: 1 }}
+        />
       )}
     </Box>
   );

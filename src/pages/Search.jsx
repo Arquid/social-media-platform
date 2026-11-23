@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Paper, TextField, InputAdornment, List, ListItem, ListItemButton, ListItemAvatar, ListItemText,
-  Typography, CircularProgress, Alert, Box, Button,
+  Typography, CircularProgress, Alert, Box
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import UserAvatar from '../components/UserAvatar';
@@ -10,6 +10,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useToast } from '../hooks/useToast';
 import { searchProfiles, MIN_SEARCH_LENGTH } from '../lib/search';
 import PageTitle from '../components/PageTitle';
+import LoadMore from '../components/LoadMore';
 
 export default function Search() {
   const [params, setParams] = useSearchParams();
@@ -44,7 +45,7 @@ export default function Search() {
 
     if (found.error) {
       showToast(`Could not load more people: ${found.error}`);
-      return;
+      return false;
     }
     // The text may have changed while waiting: then these people belong to an old search
     setResult((prev) => {
@@ -56,6 +57,7 @@ export default function Search() {
         hasMore: found.hasMore,
       };
     });
+    return true;
   }
 
   function handleChange(e) {
@@ -124,11 +126,7 @@ export default function Search() {
       )}
 
       {searchable && !loading && result.hasMore && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-          <Button onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading...' : 'Show more'}
-          </Button>
-        </Box>
+        <LoadMore onLoad={loadMore} loading={loadingMore} label="Show more" sx={{ mt: 2 }} />
       )}
     </>
   );
