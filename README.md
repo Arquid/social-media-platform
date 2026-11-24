@@ -100,13 +100,15 @@ npm run dev
 
 Open http://localhost:5173.
 
+> If the sign up form says **Failed to fetch**, `.env` still has the placeholders (or the project is paused). Fill in the real URL and key and **restart** `npm run dev`: Vite reads `.env` only when it starts.
+
 ## Local development with Docker
 
 Run the whole Supabase stack (auth, database, realtime, email inbox) on your own machine. Nothing leaves your computer, so it is a safe place for throwaway test accounts. You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) running. The Supabase CLI is a dev dependency.
 
 ```bash
 npm run db:start      # first start downloads several Docker images
-npm run db:status     # copy the ANON_KEY (or publishable key)
+npx supabase status -o env   # copy the ANON_KEY (plain `npm run db:status` prints the same as one long JSON line)
 cp .env.localdb.example .env.localdb   # paste the key into VITE_SUPABASE_ANON_KEY
 npm run dev:local     # the app against the local backend
 ```
@@ -119,6 +121,8 @@ All migrations are applied on a fresh start. If you add one while Supabase is ru
 | Email inbox (Mailpit), including password reset emails | http://127.0.0.1:54324 |
 
 Email confirmation is off locally. The links in emails lead back to the app on `localhost:5173` (addresses are listed in `supabase/config.toml`).
+
+The first start downloads the Docker images (a few minutes); later starts take under a minute. `npm install` may report a few moderate vulnerabilities in dev tools: the CI fails only for serious ones in the packages that go into the app.
 
 ```bash
 npm run db:stop       # stop the containers (data is kept)
