@@ -293,7 +293,7 @@ describe('CommentSection', () => {
         expect(await screen.findByText('Could not load more comments: network down')).toBeInTheDocument();
         await act(async () => {});
         expect(supabase.from).toHaveBeenCalledTimes(2);
-        expect(scroll.watching()).toHaveLength(0);
+        await waitFor(() => expect(scroll.watching()).toHaveLength(0));
 
         await userEvent.click(screen.getByRole('button', { name: 'Load more comments' }));
         expect(await screen.findByText('Comment 16')).toBeInTheDocument();

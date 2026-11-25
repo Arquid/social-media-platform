@@ -187,7 +187,7 @@ describe('Notifications page', () => {
         await scroll.comeNearTheScreen();
         expect(await screen.findByText('Could not load more notifications: timeout')).toBeInTheDocument();
         await act(async () => {});
-        expect(scroll.watching()).toHaveLength(0);
+        await waitFor(() => expect(scroll.watching()).toHaveLength(0));
 
         supabase.from.mockReturnValueOnce(createQuery({ data: many(5, 20), error: null }));
         await userEvent.click(loadMoreButton());

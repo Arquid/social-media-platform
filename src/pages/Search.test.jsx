@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, act } from '@testing-library/react';
+import { screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
 import Search from './Search';
@@ -327,7 +327,7 @@ describe('Search page', () => {
         expect(await screen.findByText('Could not load more people: timeout')).toBeInTheDocument();
         await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 20); }); });
         expect(searchProfiles).toHaveBeenCalledTimes(2);
-        expect(scroll.watching()).toHaveLength(0);
+        await waitFor(() => expect(scroll.watching()).toHaveLength(0));
 
         await user.click(showMore());
         expect(await screen.findByText('Person 25')).toBeInTheDocument();

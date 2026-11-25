@@ -99,7 +99,7 @@ describe('Feed', () => {
       await act(async () => {});
 
       expect(supabase.from).toHaveBeenCalledTimes(2);
-      expect(scroll.watching()).toHaveLength(0);
+      await waitFor(() => expect(scroll.watching()).toHaveLength(0));
 
       await userEvent.click(screen.getByRole('button', { name: /load more/i }));
       expect(await screen.findByText('Post 26')).toBeInTheDocument();
