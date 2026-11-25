@@ -8,6 +8,8 @@ import {
 import { renderWithProviders } from '../test/renderWithProviders';
 import { installFakeIntersectionObserver } from '../test/fakeIntersectionObserver';
 
+// The real module is used for the reasons; it must not make a Supabase client, which needs the settings of a project
+vi.mock('../lib/supabaseClient', () => ({ supabase: {} }));
 vi.mock('../lib/moderation', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchIsAdmin: vi.fn(),
