@@ -187,8 +187,10 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('h1')).toHaveCount(1);
       await expect.poll(() => problemsOn(page), { message: 'open reports' }).toEqual([]);
 
-      await page.getByRole('button', { name: 'Remove post' }).click();
-      await expect(page.getByRole('button', { name: 'Yes, remove the post' })).toBeVisible();
+      // (the list holds the reports of other tests too: take the one of this test)
+      const ours = page.locator('.MuiPaper-root', { hasText: `@${open.username} reported` });
+      await ours.getByRole('button', { name: 'Remove post' }).click();
+      await expect(ours.getByRole('button', { name: 'Yes, remove the post' })).toBeVisible();
       await expect.poll(() => problemsOn(page), { message: 'the removal question' }).toEqual([]);
 
       await page.getByRole('tab', { name: 'Handled' }).click();

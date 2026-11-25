@@ -16,6 +16,9 @@ vi.mock('../lib/moderation', async (importOriginal) => ({
   fetchReports: vi.fn(),
   fetchOpenReportCount: vi.fn(),
   resolveReport: vi.fn(),
+  // A page of three, not twenty: a page of twenty cards is slow to draw when the whole suite runs at once.
+  // (That the real size is twenty is tested with the library.)
+  REPORTS_PAGE_SIZE: 3,
 }));
 
 const report = (overrides = {}) => ({
@@ -38,7 +41,7 @@ const report = (overrides = {}) => ({
   ...overrides,
 });
 
-// 20 reports, newest first, the newest having the id `newest`
+// `count` reports, newest first, the newest having the id `newest`
 const many = (count, newest) => Array.from({ length: count }, (_, i) => report({ id: newest - i, reporter_username: `rep${newest - i}` }));
 
 const kindOf = (text) => screen.getByText(text).closest('[role="alert"]').className.match(/MuiAlert-\w*(Success|Error)/)?.[1];
@@ -363,20 +366,20 @@ describe('pages', () => {
 
   it('loads the next page by itself when the button comes near the screen', async () => {
     const scroll = installFakeIntersectionObserver();
-    show(many(20, 40));
-    await screen.findByText('@rep40');
-    fetchReports.mockResolvedValue({ data: many(5, 20), error: null });
+    show(many(3, 6));
+    await screen.findByText('@rep6');
+    fetchReports.mockResolvedValue({ data: many(2, 3), error: null });
 
     await scroll.comeNearTheScreen();
 
-    expect(await screen.findByText('@rep16')).toBeInTheDocument();
-    expect(fetchReports).toHaveBeenLastCalledWith('open', 21);
+    expect(await screen.findByText('@rep2')).toBeInTheDocument();
+    expect(fetchReports).toHaveBeenLastCalledWith('open', 4);
   });
 
   it('stops loading by itself after an error, until the button is pressed', async () => {
     const scroll = installFakeIntersectionObserver();
-    show(many(20, 40));
-    await screen.findByText('@rep40');
+    show(many(3, 6));
+    await screen.findByText('@rep6');
     fetchReports.mockImplementation(() => new Promise((resolve) => {
       setTimeout(() => resolve({ data: [], error: { message: 'timeout' } }), 10);
     }));
@@ -386,44 +389,44 @@ describe('pages', () => {
     await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 30); }); });
     await waitFor(() => expect(scroll.watching()).toHaveLength(0));
 
-    fetchReports.mockResolvedValue({ data: many(3, 20), error: null });
+    fetchReports.mockResolvedValue({ data: many(2, 3), error: null });
     await userEvent.click(loadMoreButton());
-    expect(await screen.findByText('@rep18')).toBeInTheDocument();
+    expect(await screen.findByText('@rep2')).toBeInTheDocument();
   });
 
   it('offers more only when the first page was full', async () => {
-    const { unmount } = show(many(19, 19));
-    await screen.findByText('@rep19');
+    const { unmount } = show(many(2, 2));
+    await screen.findByText('@rep2');
     expect(loadMoreButton()).not.toBeInTheDocument();
     unmount();
 
-    show(many(20, 20));
-    await screen.findByText('@rep20');
+    show(many(3, 3));
+    await screen.findByText('@rep3');
     expect(loadMoreButton()).toBeInTheDocument();
   });
 
   it('loads the reports after the last one that is shown, and adds them below, none twice', async () => {
-    show(many(20, 40));
-    await screen.findByText('@rep40');
-    fetchReports.mockResolvedValue({ data: [...many(3, 21).slice(0, 1), ...many(4, 20)], error: null }); // one overlaps
+    show(many(3, 6));
+    await screen.findByText('@rep6');
+    fetchReports.mockResolvedValue({ data: [...many(1, 4), ...many(1, 3)], error: null }); // the first one is already shown
 
     await userEvent.click(loadMoreButton());
 
-    expect(await screen.findByText('@rep17')).toBeInTheDocument();
-    expect(fetchReports).toHaveBeenLastCalledWith('open', 21);
-    expect(screen.getAllByText('@rep21')).toHaveLength(1);
+    expect(await screen.findByText('@rep3')).toBeInTheDocument();
+    expect(fetchReports).toHaveBeenLastCalledWith('open', 4);
+    expect(screen.getAllByText('@rep4')).toHaveLength(1);
     expect(loadMoreButton()).not.toBeInTheDocument();
   });
 
   it('shows the reason when a page cannot be loaded, and keeps what is shown and the button', async () => {
-    show(many(20, 40));
-    await screen.findByText('@rep40');
+    show(many(3, 6));
+    await screen.findByText('@rep6');
     fetchReports.mockResolvedValue({ data: [], error: { message: 'timeout' } });
 
     await userEvent.click(loadMoreButton());
 
     expect(await screen.findByText('Could not load more reports: timeout')).toBeInTheDocument();
-    expect(screen.getAllByText(/^@rep\d+$/)).toHaveLength(20);
+    expect(screen.getAllByText(/^@rep\d+$/)).toHaveLength(3);
     await waitFor(() => expect(loadMoreButton()).toBeEnabled());
   });
 });

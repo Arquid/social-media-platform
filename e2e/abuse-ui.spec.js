@@ -67,7 +67,7 @@ test.describe('blocking', () => {
     // Confirming does
     await blockButton(page).click();
     await dialog.getByRole('button', { name: 'Block', exact: true }).click();
-    await expect(page.getByText(`Blocked @${other.username}.`)).toBeVisible();
+    await expect(page.getByText(`Blocked @${other.username}.`, { exact: true })).toBeVisible();
     await expect(page.getByText(`You have blocked @${other.username}`)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Follow', exact: true })).toHaveCount(0);
