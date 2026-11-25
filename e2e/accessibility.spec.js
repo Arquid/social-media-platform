@@ -161,6 +161,40 @@ for (const scheme of ['light', 'dark']) {
       // (the green message about the block still fades in: look again until it is calm)
       await expect.poll(() => problemsOn(page), { message: 'profile of a blocked person' }).toEqual([]);
     });
+
+    test('the page of the reports for an administrator: an open report, the removal question, and a handled one', async ({ page, request }) => {
+      const admin = newUser('a11yadm');
+      await signUp(page, admin);
+      runSql(`insert into admins (user_id) select id from profiles where username = '${admin.username}';`);
+      const author = await createUser(request, 'a11yrauth');
+      const [open, handled] = [await createUser(request, 'a11yropen'), await createUser(request, 'a11yrdone')];
+      const made = await request.post(`${API}/rest/v1/posts`, {
+        headers: authHeaders(author, { 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        data: { user_id: author.id, content: 'a post for the report page' },
+      });
+      const [target] = await made.json();
+      for (const [reporter, reason] of [[handled, 'spam'], [open, 'harassment']]) {
+        await request.post(`${API}/rest/v1/reports`, {
+          headers: authHeaders(reporter, { 'Content-Type': 'application/json' }),
+          data: { reporter_id: reporter.id, post_id: target.id, reason, details: 'a detail for the check' },
+        });
+      }
+      runSql(`update reports set handled_at = now(), handled_by = (select id from profiles where username = '${admin.username}'),
+              resolution = 'noted', handler_note = 'a note for the check' where reporter_id = '${handled.id}';`);
+
+      await page.goto('/admin/reports');
+      await expect(page.getByText(`@${open.username} reported`)).toBeVisible();
+      await expect(page.locator('h1')).toHaveCount(1);
+      await expect.poll(() => problemsOn(page), { message: 'open reports' }).toEqual([]);
+
+      await page.getByRole('button', { name: 'Remove post' }).click();
+      await expect(page.getByRole('button', { name: 'Yes, remove the post' })).toBeVisible();
+      await expect.poll(() => problemsOn(page), { message: 'the removal question' }).toEqual([]);
+
+      await page.getByRole('tab', { name: 'Handled' }).click();
+      await expect(page.getByText(/Handled by/).first()).toBeVisible();
+      await expect.poll(() => problemsOn(page), { message: 'handled reports' }).toEqual([]);
+    });
   });
 }
 

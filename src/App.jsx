@@ -16,6 +16,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const Search = lazy(() => import('./pages/Search'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const AdminReports = lazy(() => import('./pages/AdminReports'));
 
 function PageFallback() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
               <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+              <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
               <Route path="/post/:id" element={<ProtectedRoute><PostPage /></ProtectedRoute>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />

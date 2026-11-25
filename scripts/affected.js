@@ -38,14 +38,15 @@ export const RULES = [
   [/^src\/pages\/PostPage\.jsx$/, ['post-page', 'post-editing-ui', 'realtime-filters', 'pagination', 'errors', 'accessibility']],
   [/^src\/pages\/Profile\.jsx$/, ['abuse-ui', 'profile', 'account-deletion', 'post-editing-ui', 'accessibility']],
   [/^src\/pages\/Search\.jsx$/, ['infinite-scroll', 'search-ui', 'pagination', 'accessibility']],
+  [/^src\/pages\/AdminReports\.jsx$/, ['moderation-ui', 'moderation', 'infinite-scroll', 'accessibility']],
   [/^src\/pages\/NotFound\.jsx$/, ['errors', 'accessibility']],
-  [/^src\/App\.jsx$/, ['errors', 'auth', 'password-reset', 'accessibility']],
+  [/^src\/App\.jsx$/, ['errors', 'auth', 'password-reset', 'moderation-ui', 'accessibility']],
   [/^src\/theme\.js$/, ['theme-and-time', 'accessibility']],
 
   // --- helpers used by the pages ---
   [/^src\/lib\/avatars\.js$/, ['profile', 'account-deletion', 'accessibility']],
   [/^src\/lib\/postImages\.js$/, ['post-images-ui', 'account-deletion']],
-  [/^src\/lib\/moderation\.js$/, ['abuse-ui', 'abuse']],
+  [/^src\/lib\/moderation\.js$/, ['abuse-ui', 'abuse', 'moderation-ui', 'moderation']],
   [/^src\/lib\/search\.js$/, ['search-ui', 'pagination', 'error-reporting']],
   [/^src\/lib\/errors\.js$/, ['rate-limit-ui']],
   [/^src\/lib\/errorReporting\.js$/, ['error-reporting', 'errors', 'search-ui']],
@@ -70,6 +71,7 @@ export const RULES = [
   [/migrations\/\d+_pagination\.sql$/, ['pagination', 'search', 'indexes', 'privileges']],
   [/migrations\/\d+_edit_posts\.sql$/, ['edit-post', 'post-editing-ui', 'privileges', 'following-feed']],
   [/migrations\/\d+_post_images\.sql$/, ['post-images', 'post-images-ui', 'privileges', 'following-feed', 'account-deletion']],
+  [/migrations\/\d+_report_moderation\.sql$/, ['moderation', 'moderation-ui', 'abuse', 'abuse-ui', 'privileges', 'indexes', 'post-images', 'account-deletion']],
   [/migrations\/\d+_abuse_protection\.sql$/, ['abuse', 'privileges', 'indexes', 'rate-limit', 'notifications', 'following-feed', 'post-page', 'account-deletion', 'social']],
 ];
 

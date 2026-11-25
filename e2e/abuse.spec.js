@@ -328,7 +328,7 @@ test.describe('reporting', () => {
 
     const rows = reports(`reporter_id = '${reporter.id}'`);
     expect(rows).toHaveLength(1);
-    expect(rows[0][2]).toBe(''); // the post is gone
+    expect(rows[0][2]).toBe(String(target.id)); // the post is gone, the report still says which one it was
     expect(rows[0][6]).toBe('the first words');
   });
 

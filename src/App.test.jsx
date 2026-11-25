@@ -22,6 +22,7 @@ vi.mock('./pages/Register', () => ({ default: () => <div>Register page</div> }))
 vi.mock('./pages/Profile', () => ({ default: () => <div>Profile page</div> }));
 vi.mock('./pages/PostPage', () => ({ default: () => <div>Post page</div> }));
 vi.mock('./pages/Search', () => ({ default: () => <div>Search page</div> }));
+vi.mock('./pages/AdminReports', () => ({ default: () => <div>Admin reports page</div> }));
 vi.mock('./pages/ForgotPassword', () => ({ default: () => <div>Forgot password page</div> }));
 vi.mock('./pages/ResetPassword', () => ({ default: () => <div>Reset password page</div> }));
 
@@ -73,6 +74,7 @@ describe('App routing', () => {
     ['/notifications', 'Notifications page'],
     ['/search', 'Search page'],
     ['/post/7', 'Post page'],
+    ['/admin/reports', 'Admin reports page'],
   ])('opens the page for %s', async (route, text) => {
     renderWithProviders(<App />, { route });
 
@@ -124,6 +126,13 @@ describe('App routing', () => {
 
     renderWithProviders(<App />, { route: '/search?q=anna' });
     expect(await screen.findByText('Search page')).toBeInTheDocument();
+  });
+
+  it('keeps the page of the reports for logged-in users: a visitor is sent to the login page', async () => {
+    renderWithProviders(<App />, { route: '/admin/reports', user: null });
+
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
+    expect(screen.queryByText('Admin reports page')).not.toBeInTheDocument();
   });
 
   it('keeps the search page for logged-in users only', async () => {

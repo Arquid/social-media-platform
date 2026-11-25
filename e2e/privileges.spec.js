@@ -11,6 +11,7 @@ const TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'R
 
 // What a logged-in user may do, per table or view. Everything not listed is forbidden.
 const EXPECTED = {
+  admins: [], // nobody through the API: the functions of the administrator look at it
   blocks: ['DELETE', 'INSERT', 'SELECT'],
   comments: ['DELETE', 'INSERT', 'SELECT'],
   follows: ['DELETE', 'INSERT', 'SELECT'],
@@ -126,7 +127,9 @@ test.describe('privileges of the database roles', () => {
         order by 1;
       `);
 
-    expect(executable('authenticated')).toEqual(['delete_my_account', 'search_profiles']);
+    expect(executable('authenticated')).toEqual([
+      'admin_list_reports', 'admin_open_report_count', 'admin_resolve_report', 'delete_my_account', 'is_admin', 'search_profiles',
+    ]);
     expect(executable('anon')).toEqual([]);
     expect(executable('public')).toEqual([]);
   });

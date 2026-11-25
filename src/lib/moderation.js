@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { deletePostImage } from './postImages';
 
 export const REPORT_REASONS = [
   { value: 'spam', label: 'Spam' },
@@ -38,4 +39,39 @@ export async function sendReport(reporterId, target, reason, details) {
   // Reporting the same thing twice: nothing is wrong, the report is already there
   if (error?.code === '23505') return { error: null, alreadyReported: true };
   return { error, alreadyReported: false };
+}
+
+export const REPORTS_PAGE_SIZE = 20;
+
+// Is the logged-in user an administrator? Any failure counts as "no".
+export async function fetchIsAdmin() {
+  const { data, error } = await supabase.rpc('is_admin');
+  return !error && data === true;
+}
+
+// status: 'open' or 'handled'. beforeId: the id of the last report that is shown (for the next page)
+export async function fetchReports(status, beforeId) {
+  const { data, error } = await supabase.rpc('admin_list_reports', {
+    p_status: status,
+    p_limit: REPORTS_PAGE_SIZE,
+    p_before: beforeId ?? null,
+  });
+  return { data: data ?? [], error };
+}
+
+export async function fetchOpenReportCount() {
+  const { data, error } = await supabase.rpc('admin_open_report_count');
+  return { count: data ?? 0, error };
+}
+
+// resolution: 'dismissed', 'content_removed' or 'noted'. When a post with a picture is removed, the file goes too.
+export async function resolveReport(reportId, resolution, note) {
+  const { data: imagePath, error } = await supabase.rpc('admin_resolve_report', {
+    p_report_id: reportId,
+    p_resolution: resolution,
+    p_note: note?.trim() || null,
+  });
+  if (error) return { error };
+  await deletePostImage(imagePath);
+  return { error: null };
 }
