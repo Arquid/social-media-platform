@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import Register from './Register';
 import { supabase } from '../lib/supabaseClient';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { LEGAL_VERSION } from '../lib/legal';
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { auth: { signUp: vi.fn() } },
@@ -20,10 +21,13 @@ function renderRegister() {
   );
 }
 
-async function fillForm({ username, email = 'new@example.test', password = 'secret123' }) {
+const agreement = () => screen.getByRole('checkbox', { name: /I agree to the Terms of Use and the Privacy Policy/ });
+
+async function fillForm({ username, email = 'new@example.test', password = 'secret123', agree = true }) {
   await userEvent.type(screen.getByLabelText(/username/i), username);
   await userEvent.type(screen.getByLabelText(/email/i), email);
   await userEvent.type(screen.getByLabelText(/password/i), password);
+  if (agree) await userEvent.click(agreement());
 }
 
 describe('Register', () => {
@@ -57,7 +61,8 @@ describe('Register', () => {
       email: 'new@example.test',
       password: 'secret123',
       // The confirmation link, if the project sends one, must come back to this app
-      options: { data: { username: 'valid_name1' }, emailRedirectTo: window.location.origin },
+      // and the version of the terms and the privacy policy that were accepted, which the database writes down
+      options: { data: { username: 'valid_name1', accepted_legal_version: LEGAL_VERSION }, emailRedirectTo: window.location.origin },
     });
     expect(await screen.findByText('Home page')).toBeInTheDocument();
   });
@@ -85,6 +90,58 @@ describe('Register', () => {
       await screen.findByRole('heading', { name: 'Check your email' });
       expect(screen.queryByRole('button', { name: /sign up/i })).not.toBeInTheDocument();
       expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('the agreement to the terms and the privacy policy', () => {
+    it('is a checkbox that is not ticked at first, with a link to each text that opens in a new tab', () => {
+      renderRegister();
+
+      expect(agreement()).not.toBeChecked();
+      expect(agreement()).toBeRequired();
+      for (const [name, href] of [['Terms of Use', '/terms'], ['Privacy Policy', '/privacy']]) {
+        const link = screen.getByRole('link', { name });
+        expect(link).toHaveAttribute('href', href);
+        expect(link).toHaveAttribute('target', '_blank');
+        expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+        // inside a sentence: not only the color tells that it is a link
+        expect(link.className).toMatch(/underlineAlways/);
+      }
+      expect(screen.getByText(/they open in a new tab/)).toBeInTheDocument();
+    });
+
+    it('stops the sign up until it is ticked: nothing is sent', async () => {
+      renderRegister();
+      await fillForm({ username: 'valid_name', agree: false });
+
+      await userEvent.click(screen.getByRole('button', { name: /sign up/i }));
+
+      expect(supabase.auth.signUp).not.toHaveBeenCalled();
+    });
+
+    it('also stops a form that is sent without the browser checking it, and says why', async () => {
+      renderRegister();
+      await fillForm({ username: 'valid_name', agree: false });
+
+      fireEvent.submit(screen.getByRole('button', { name: /sign up/i }).closest('form'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('You need to accept the Terms of Use and the Privacy Policy');
+      expect(supabase.auth.signUp).not.toHaveBeenCalled();
+    });
+
+    it('lets the sign up go through once it is ticked, and unticking it stops it again', async () => {
+      supabase.auth.signUp.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+      renderRegister();
+      await fillForm({ username: 'valid_name' });
+      expect(agreement()).toBeChecked();
+
+      await userEvent.click(agreement());
+      fireEvent.submit(screen.getByRole('button', { name: /sign up/i }).closest('form'));
+      expect(supabase.auth.signUp).not.toHaveBeenCalled();
+
+      await userEvent.click(agreement());
+      await userEvent.click(screen.getByRole('button', { name: /sign up/i }));
+      await waitFor(() => expect(supabase.auth.signUp).toHaveBeenCalledTimes(1));
     });
   });
 

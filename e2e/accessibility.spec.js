@@ -20,7 +20,7 @@ for (const scheme of ['light', 'dark']) {
     test.use({ colorScheme: scheme });
 
     test('pages for visitors who are not logged in', async ({ page }) => {
-      for (const path of ['/login', '/register', '/forgot-password', '/reset-password', '/no-such-page']) {
+      for (const path of ['/login', '/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/no-such-page']) {
         await page.goto(path);
         await expect(page.locator('h1')).toHaveCount(1);
         expect(await problemsOn(page), path).toEqual([]);

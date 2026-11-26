@@ -31,21 +31,26 @@ export const RULES = [
   [/^src\/components\/ErrorBoundary\.jsx$/, ['errors', 'error-reporting', 'accessibility']],
   [/^src\/components\/(PageTitle|ProtectedRoute)\.jsx$/, ['errors', 'auth', 'accessibility']],
   [/^src\/components\/(ThemeToggle|TimeAgo)\.jsx$/, ['theme-and-time', 'accessibility']],
-  [/^src\/pages\/(Login|Register)\.jsx$/, ['auth', 'password-reset', 'account-deletion', 'accessibility']],
+  [/^src\/pages\/(Login|Register)\.jsx$/, ['legal-ui', 'auth', 'password-reset', 'account-deletion', 'accessibility']],
   [/^src\/pages\/(ForgotPassword|ResetPassword)\.jsx$/, ['password-reset', 'accessibility']],
   [/^src\/pages\/Home\.jsx$/, ['social', 'own-post', 'following-feed', 'accessibility']],
   [/^src\/pages\/Notifications\.jsx$/, ['infinite-scroll', 'notifications', 'pagination', 'post-page', 'social', 'accessibility']],
   [/^src\/pages\/PostPage\.jsx$/, ['post-page', 'post-editing-ui', 'realtime-filters', 'pagination', 'errors', 'accessibility']],
-  [/^src\/pages\/Profile\.jsx$/, ['abuse-ui', 'profile', 'account-deletion', 'post-editing-ui', 'accessibility']],
+  [/^src\/pages\/Profile\.jsx$/, ['legal-ui', 'abuse-ui', 'profile', 'account-deletion', 'post-editing-ui', 'accessibility']],
   [/^src\/pages\/Search\.jsx$/, ['infinite-scroll', 'search-ui', 'pagination', 'accessibility']],
   [/^src\/pages\/AdminReports\.jsx$/, ['moderation-ui', 'moderation', 'infinite-scroll', 'accessibility']],
+  [/^src\/pages\/(Terms|Privacy)\.jsx$/, ['legal-ui', 'accessibility']],
+  [/^src\/components\/(LegalPage)\.jsx$/, ['legal-ui', 'accessibility']],
+  [/^src\/components\/ExportDataButton\.jsx$/, ['legal-ui', 'data-export']],
   [/^src\/pages\/NotFound\.jsx$/, ['errors', 'accessibility']],
-  [/^src\/App\.jsx$/, ['errors', 'auth', 'password-reset', 'moderation-ui', 'accessibility']],
+  [/^src\/App\.jsx$/, ['legal-ui', 'errors', 'auth', 'password-reset', 'moderation-ui', 'accessibility']],
   [/^src\/theme\.js$/, ['theme-and-time', 'accessibility']],
 
   // --- helpers used by the pages ---
   [/^src\/lib\/avatars\.js$/, ['profile', 'account-deletion', 'accessibility']],
   [/^src\/lib\/postImages\.js$/, ['post-images-ui', 'account-deletion']],
+  [/^src\/lib\/dataExport\.js$/, ['legal-ui', 'data-export']],
+  [/^src\/lib\/legal\.js$/, ['legal-ui', 'auth']],
   [/^src\/lib\/moderation\.js$/, ['abuse-ui', 'abuse', 'moderation-ui', 'moderation']],
   [/^src\/lib\/search\.js$/, ['search-ui', 'pagination', 'error-reporting']],
   [/^src\/lib\/errors\.js$/, ['rate-limit-ui']],
@@ -71,13 +76,14 @@ export const RULES = [
   [/migrations\/\d+_pagination\.sql$/, ['pagination', 'search', 'indexes', 'privileges']],
   [/migrations\/\d+_edit_posts\.sql$/, ['edit-post', 'post-editing-ui', 'privileges', 'following-feed']],
   [/migrations\/\d+_post_images\.sql$/, ['post-images', 'post-images-ui', 'privileges', 'following-feed', 'account-deletion']],
+  [/migrations\/\d+_data_export_and_consent\.sql$/, ['data-export', 'legal-ui', 'privileges', 'auth', 'account-deletion']],
   [/migrations\/\d+_report_moderation\.sql$/, ['moderation', 'moderation-ui', 'abuse', 'abuse-ui', 'privileges', 'indexes', 'post-images', 'account-deletion']],
   [/migrations\/\d+_abuse_protection\.sql$/, ['abuse', 'privileges', 'indexes', 'rate-limit', 'notifications', 'following-feed', 'post-page', 'account-deletion', 'social']],
 ];
 
 // Files that change nothing about how the app works
 const HARMLESS = [
-  /\.md$/, /^\.gitignore$/, /^\.github\/dependabot\.yml$/, /^LICENSE/,
+  /\.md$/, /^\.gitignore$/, /^\.env(\.localdb)?\.example$/, /^\.github\/dependabot\.yml$/, /^LICENSE/,
   /\.test\.jsx?$/, // unit tests: they are run by the unit test step
   /^scripts\//, // the tools that choose the tests (they have unit tests of their own)
   /^eslint\.config\.js$/, // lint is always run

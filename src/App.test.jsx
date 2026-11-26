@@ -23,6 +23,8 @@ vi.mock('./pages/Profile', () => ({ default: () => <div>Profile page</div> }));
 vi.mock('./pages/PostPage', () => ({ default: () => <div>Post page</div> }));
 vi.mock('./pages/Search', () => ({ default: () => <div>Search page</div> }));
 vi.mock('./pages/AdminReports', () => ({ default: () => <div>Admin reports page</div> }));
+vi.mock('./pages/Terms', () => ({ default: () => <div>Terms page</div> }));
+vi.mock('./pages/Privacy', () => ({ default: () => <div>Privacy page</div> }));
 vi.mock('./pages/ForgotPassword', () => ({ default: () => <div>Forgot password page</div> }));
 vi.mock('./pages/ResetPassword', () => ({ default: () => <div>Reset password page</div> }));
 
@@ -75,6 +77,8 @@ describe('App routing', () => {
     ['/search', 'Search page'],
     ['/post/7', 'Post page'],
     ['/admin/reports', 'Admin reports page'],
+    ['/terms', 'Terms page'],
+    ['/privacy', 'Privacy page'],
   ])('opens the page for %s', async (route, text) => {
     renderWithProviders(<App />, { route });
 
@@ -126,6 +130,48 @@ describe('App routing', () => {
 
     renderWithProviders(<App />, { route: '/search?q=anna' });
     expect(await screen.findByText('Search page')).toBeInTheDocument();
+  });
+
+  it.each([['/terms', 'Terms page'], ['/privacy', 'Privacy page']])('lets visitors who are not logged in read %s', async (route, text) => {
+    renderWithProviders(<App />, { route, user: null });
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
+  });
+
+  describe('the footer', () => {
+    it('has links to the terms and the privacy policy, outside the main area, for logged-in users and for visitors', async () => {
+      const { unmount } = renderWithProviders(<App />, { route: '/' });
+      await screen.findByText('Home page');
+      const footer = screen.getByRole('contentinfo');
+
+      expect(screen.getByRole('link', { name: 'Terms of Use' })).toHaveAttribute('href', '/terms');
+      expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
+      expect(footer).toContainElement(screen.getByRole('link', { name: 'Terms of Use' }));
+      expect(screen.getByRole('main')).not.toContainElement(footer);
+      unmount();
+
+      renderWithProviders(<App />, { route: '/login', user: null });
+      await screen.findByText('Login page');
+      expect(screen.getByRole('link', { name: 'Terms of Use' })).toBeInTheDocument();
+      expect(screen.getAllByRole('contentinfo')).toHaveLength(1);
+    });
+
+    it('is also there on the 404 page, and its links are underlined (they are not in a sentence of their own)', async () => {
+      renderWithProviders(<App />, { route: '/does-not-exist' });
+
+      await screen.findByRole('heading', { name: 'Page not found' });
+      expect(screen.getByRole('link', { name: 'Privacy Policy' }).className).toMatch(/underlineAlways/);
+    });
+
+    it('leads to the texts, which open in the app', async () => {
+      renderWithProviders(<App />, { route: '/' });
+      await screen.findByText('Home page');
+
+      await userEvent.click(screen.getByRole('link', { name: 'Privacy Policy' }));
+
+      expect(await screen.findByText('Privacy page')).toBeInTheDocument();
+    });
   });
 
   it('keeps the page of the reports for logged-in users: a visitor is sent to the login page', async () => {

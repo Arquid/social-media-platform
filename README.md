@@ -9,7 +9,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
 ![Material UI](https://img.shields.io/badge/Material_UI-v9-007fff?logo=mui&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-693_unit_%2B_316_e2e-brightgreen)
+![Tests](https://img.shields.io/badge/tests-738_unit_%2B_339_e2e-brightgreen)
 
 [Features](#features) · [Quick start](#quick-start) · [Local development](#local-development-with-docker) · [Testing](#testing) · [Database](#database) · [Deployment](#deployment)
 
@@ -41,6 +41,8 @@
 | **Pagination and infinite scroll** | Everything long comes 20 at a time, and **the next page loads by itself when you scroll near the end** (400 pixels before the button is on the screen; a tall screen is filled without scrolling). The button stays for keyboards, screen readers and old browsers, and **an error stops the automatic loading** (one message, no endless retries) until the button is pressed. The lists: the feeds, **notifications** and **comments** ("Load more", paged by id so nothing is skipped or shown twice, newest first, new ones go on top) and the **search** ("Show more", the database function takes a page size and a start). A page costs the same however long the list is, because each list has an index made for it |
 | **Block and report** | **Block** from a profile (after a question): the person can no longer like, comment on or follow you (HTTP 403, a short neutral message), you stop following each other, and **you no longer see their posts, comments or notifications** anywhere: feeds, post page, counters and live updates. The profile says so and offers **Unblock**. Only you can see your blocks. **Report** a post, a comment or a person (spam, harassment, hate, violence, other, with optional details): the database records who is reported (it cannot be forged) and a copy of the text, even if the post is later edited or deleted. Reports cannot be read through the API: an administrator reads them on the page of the reports (see the next row) |
 | **Handling reports** | An administrator opens `/admin/reports` (the address is not linked anywhere; everybody else gets the 404 page): **open** and **handled** reports with who reported whom, why, the copy of the text and how many other open reports there are about the same thing. A report can be **dismissed**, **marked as handled** with a note, or (a post or a comment) **removed**, after a second question; a post is deleted with its comments, likes and **picture file**. Handling one report handles every open report about the same thing, and a handled report keeps who handled it, when, how and the note. See [Administrator](#administrator) for how to become one |
+| **Terms and privacy** | A **Terms of Use** (`/terms`) and a **Privacy Policy** (`/privacy`), open to everybody and linked from the footer of every page. The sign up form has a box that must be ticked: "I agree to the Terms of Use and the Privacy Policy" (the links open in a new tab). The version of the texts that was accepted is written down by the database (the table `consents`, closed to the API). See [Terms and privacy](#terms-and-privacy) |
+| **Download my data** | A button on your own profile page saves **everything the service holds about you** as one JSON file: account (with the email), posts and picture paths, comments, likes, follows in both directions, blocks, notifications, reports you sent and the terms you accepted. It is made by the database function `export_my_data()`: only your own data, **at most 5 downloads an hour**, and the reports that other people made about you are left out (they are private for moderation) |
 | **Relative times** | "just now", "5 minutes ago", "yesterday", then a date. The exact time is in the tooltip and the text keeps up with the clock |
 
 ### Quality
@@ -89,6 +91,8 @@ VITE_SUPABASE_URL=https://YOUR-PROJECT-ID.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR-ANON-PUBLIC-KEY
 # Optional: error reporting (Sentry). Leave empty to send nothing.
 VITE_SENTRY_DSN=
+# Optional: the address that the terms and the privacy policy give for questions about data (shown to everybody).
+VITE_CONTACT_EMAIL=
 ```
 
 > Only use the `anon` key in the frontend. Never expose the `service_role` key.
@@ -150,8 +154,8 @@ npm run db:reset      # wipe the local database and re-apply migrations
 
 | Level | Count | Runs against | Command |
 |---|---|---|---|
-| Unit and component | **693** (668 app, 25 for the test selection) | Mocked Supabase, no backend. **98.5 %** of the statements and 99.8 % of the lines of `src/` are covered | `npm test` |
-| End-to-end | **316** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
+| Unit and component | **738** (713 app, 25 for the test selection) | Mocked Supabase, no backend. **98.5 %** of the statements and 99.8 % of the lines of `src/` are covered | `npm test` |
+| End-to-end | **339** | Real browser and **local** Supabase | `npm run db:start` then `npm run test:e2e` |
 | CI | all of the above | GitHub Actions | on every push and pull request |
 
 ### Fast check of a change
@@ -181,6 +185,7 @@ Tests are also checked by **mutation**: a feature is broken on purpose and the m
 - **Account deletion:** the confirmation (exact username needed), the order (picture, then account), a failing picture removal or database stops everything, locked while working, double clicks, only on your own profile
 - **Pages:** profile, post page, notifications, search (typing pause, one search per pause, spinner, empty and error states, ignoring slow answers, text in the address), 404, login, sign up ("Check your email"), forgot and reset password (the exact return address, same answer for any address, errors, mismatching passwords, double clicks)
 - **Infinite scroll:** the button loads when it comes near the screen (and not before, once per arrival, only one page at a time), looks again after every page so a tall screen is filled, stops after an error and works again after a press, nothing is loaded again when there was nothing to load, the newest `onLoad`, stops watching on unmount, and the plain button without `IntersectionObserver`; in the four lists: the automatic load, and the stop after an error
+- **Terms, privacy and the export:** the version of the texts (a date, the same day in words, short enough for the database) and the contact address from the settings (trimmed, empty when missing), the two texts (one first level heading, the date, sections with names, the contact line with and without an address, what is said about age, cookies, reports, deletion and the real labels of the buttons, no promise of a step that is not built), the box of the sign up (not ticked at first, required, links that open in a new tab, nothing is sent without it, the version is sent), the footer on every page and the two addresses open to visitors, the download (the file name, indented JSON, the link that is removed, the file let go after a moment, green thanks and red errors, locked while working) and the button only on your own profile
 - **Handling reports:** the library (is it an administrator, any failure is a no; the list, the count and the handling with the right arguments, the note trimmed, the picture file removed only when it worked), the page (a spinner while it asks, the 404 page for everybody else and no report asked, the tabs with the number of open reports, what each kind of report says, the count of other open reports, a removed post cannot be removed again, a person cannot be removed at all, two questions before removing, a note for each report, green thanks and red errors, locked while working, the handled reports and who handled them, the late answer of a tab that was left, pages that load by themselves and stop after an error), and the route (login needed)
 - **Block and report:** the library (block, unblock, report a post, comment or person, the duplicate is not an error), the report dialog (reason needed, details limit, success in green, errors inside the dialog with the text kept, locked while sending), the block question (cancel and Escape block nobody, success and error messages, locked while working), the profile of a blocked person (note, Unblock, no feed, no Follow), the Report buttons (only on other people's posts and comments), and the red button of the dark theme (contrast)
 - **Error reporting:** off without an address and Sentry not even loaded, private settings (no personal data, no tracing or replay), the cleaning of addresses, events and breadcrumbs, readable reports for database errors (code kept, row details left out), reports made while Sentry loads, the limit of 20, never throwing, reports from the error boundary (not for outdated versions) and from the failed queries (not for rate limits)
@@ -219,6 +224,8 @@ They create throwaway accounts and use two separate browser sessions to check re
 | `search-ui.spec.js` | The search in the browser: one search after fast typing, text in the address, reload and back button |
 | `password-reset.spec.js` | Reads emails from the local inbox and follows the link: new password works, old does not, link works once, expired link, unknown address gets the same answer and no email |
 | `rate-limit.spec.js` | HTTP 429 on the 11th post and 21st comment, separate quotas, parallel and bulk requests, tampering with the log, backdated posts, quota returns after a minute |
+| `data-export.spec.js` | Straight against the database: visitors refused and no way to name another person, the account with the email and empty lists (never null) for a new account, everything a person made in order (posts with picture paths, comments, likes, follows both ways, blocks, notifications, reports sent), **nothing of other people** (their posts, comments, likes, email, blocks, and the reports about the person), 400 posts, the limit of 5 an hour (429, per person, back after an hour, no use of the quota of posts), and the record of the accepted terms (written at the sign up, empty or missing version writes nothing, cut at 40 characters, closed to the API, goes with the account) |
+| `legal-ui.spec.js` | In the browser: the two texts open for a visitor (one heading, the date, sections), the footer on the login page, the 404 page and when logged in, the texts refer to each other, the sign up box (not ticked, nothing is sent without it and no profile is made, the links open a new tab and the form keeps what was typed, the version in the database is the date of the texts), and **"Download my data"**: a file with the account, posts, comments, likes, follows and the terms, none of the data of others, indented, only on your own profile, and the sixth download in an hour refused with a red message |
 | `moderation.spec.js` | Straight against the database: only an administrator may use the functions (visitors, users and the list of administrators refused, nobody can hand in a handled report), the list (every field, newest first, other open reports counted but not the handled ones, pages and the size limit, open and handled apart, the count), and what each way of handling does (dismissed, post removed with its comments and likes, the picture path given back and the file removed by an administrator only, a comment removed, a person cannot be removed, a note, all open reports about the same thing together and no others, twice 409, bad input 400, a user who is not an administrator changes nothing), and the accounts (deleting a post works when the same user reported the author too, the report keeps the number of the post, an administrator who deletes the account loses the right) |
 | `moderation-ui.spec.js` | In the browser: the page is the 404 page for a user who is not an administrator and the login page for a visitor, the reports with who, why and the text, "Dismiss" with a note (and the handled tab), "Remove post" with two questions (post, picture file and every report about it handled together), a comment removed, a report about a person marked as handled, a report that was handled in the meantime, and the right taken away |
 | `abuse.spec.js` | Straight against the database: the 61st like, 31st follow, 21st block and 6th report are refused with 429 (deleting does not give the quota back, per user and per kind, back after a minute); blocking and unblocking, only your own blocks are visible, no blocking in another name or yourself or twice; a blocked user is refused 403 when liking, commenting or following (nothing stored, no quota used), and the blocker cannot follow them either; the follows end in both directions; the blocker does not see the posts (both feeds, by id), the comments (and the counter) or the notifications of the blocked user, others and the blocked user see everything; reports: a post, comment or person, the reported person and the copy of the text come from the database (cannot be forged), the copy stays after an edit and the report after a delete, duplicates, wrong reports, nobody can read, change or delete reports |
@@ -283,6 +290,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 | `post_images` | Pictures in posts: the public bucket `post-images` (5 MB, JPEG/PNG/WebP, only the owner's own folder), the column `posts.image_path` (must point into the author's own folder, cannot be changed afterwards) and the new column in the feed views |
 | `abuse_protection` | Rate limits for likes, follows, blocks and reports (the rate limit function now also works for tables whose user column has another name); the table `blocks` with its policies, the triggers that refuse likes, comments and follows across a block and end the follows, and policies that hide the blocked user's posts, comments and notifications from the blocker; the table `reports` (insert only, six columns, nobody can read it through the API) with a trigger that fills in the reported person and a copy of the text |
 | `report_moderation` | Handling reports: the table `admins` (closed to the API), `is_admin()`, the state of a report (`handled_at`, `handled_by`, `resolution`, `handler_note`), the three functions of the administrator (`admin_list_reports`, `admin_resolve_report`, `admin_open_report_count`, all refuse a user who is not an administrator), the right of an administrator to remove a picture of a post from Storage, and a **fix**: a report keeps the number of a deleted post (before, deleting a post failed when the same user had reported both the post and its author) |
+| `data_export_and_consent` | The table `consents` (the accepted version of the texts, closed to the API) written by the sign up trigger from the metadata of the sign up, and `export_my_data()`: the data of the caller as JSON, own data only, 5 an hour (HTTP 429 after that) |
 
 > The username constraint is `NOT VALID`, so it only applies to new and changed profiles. If your project already has profiles that break the rule, fix them and run `alter table profiles validate constraint profiles_username_format;`.
 
@@ -300,6 +308,7 @@ Run them in filename order. On a fresh local database they are applied automatic
 - New tables, sequences and functions are **closed by default** until a migration grants access, and a test fails if a table has no decision.
 - Rate limits live in triggers, so parallel requests, bulk inserts, deleting posts and backdated posts cannot get around them. Deleting a like or a follow does not give the quota back.
 - **Blocking is enforced by the database**, not by the pages: the policies of `posts`, `comments` and `notifications` hide the blocked user's rows (every view, count and realtime message follows), and triggers refuse the blocked user's actions.
+- **The export is the caller's own data only**: `export_my_data()` takes no argument and reads `auth.uid()`, it is limited to 5 an hour, and the reports about the caller are not in it. `consents` is closed to the API like the other private tables.
 - **The administrator is checked in the database**: the functions that list and handle the reports look at the table `admins` themselves, so the page of the reports is only a convenience. The table cannot be read or changed through the API, so nobody can make themselves an administrator.
 - **CAPTCHA** for the sign up is not in the code: it is switched on in the Supabase dashboard (Authentication -> Attack Protection) together with Turnstile or hCaptcha, when the app is published.
 
@@ -313,18 +322,26 @@ insert into admins (user_id) select id from profiles where username = 'YOUR-USER
 
 Then open `/admin/reports` while logged in. To take the right away: `delete from admins where user_id = (select id from profiles where username = 'YOUR-USERNAME');`. Deleting the account of an administrator removes the right too.
 
+### Terms and privacy
+
+The texts are in [`src/pages/Terms.jsx`](src/pages/Terms.jsx) and [`src/pages/Privacy.jsx`](src/pages/Privacy.jsx). They are a reasonable starting point for a small service, **not legal advice**: read them, change what is not true for your site, and have them checked before you open the service to real users. In particular:
+
+- Set `VITE_CONTACT_EMAIL` in `.env`: it is shown at the end of both texts as the address for questions about data. Without it the texts say that questions go to the person who runs the site.
+- The minimum age (16), the list of who handles the data (Supabase, an email service, optionally Sentry) and the sentence about cookies describe this app as it is. Update them if you add something (analytics, another service, another login method).
+- When you change the texts in a way that matters, change `LEGAL_VERSION` and `LEGAL_UPDATED` in [`src/lib/legal.js`](src/lib/legal.js). New sign ups then write the new version down. (Asking people who already have an account to accept a new version is not built.)
+
 ## Project structure
 
 ```
 src/
 ├── main.jsx, App.jsx, theme.js   # Entry, routes (lazy pages, error boundary, 404), light and dark colors
 ├── pages/                        # Login, Register, ForgotPassword, ResetPassword, Home, Profile,
-│                                 # PostPage, Notifications, Search, NotFound
+│                                 # PostPage, Notifications, Search, AdminReports, Terms, Privacy, NotFound
 ├── components/                   # Navbar, Feed, PostCard, PostForm, CommentSection, FollowButton,
 │                                 # EditProfileDialog, UserAvatar, TimeAgo, ThemeToggle, PageTitle,
-│                                 # ProtectedRoute, ErrorBoundary
+│                                 # ProtectedRoute, ErrorBoundary, LegalPage, ExportDataButton, ReportDialog, BlockButton, LoadMore
 ├── context/, hooks/              # Auth and toast providers; useAuth, useToast, useDebouncedValue, useNow
-├── lib/                          # Supabase client, avatars, search, error reporting, rate limit errors, relative time
+├── lib/                          # Supabase client, avatars, search, moderation, data export, legal version, error reporting, relative time
 └── test/                         # Test setup, Supabase mocks, render helper (*.test.jsx sit next to the code)
 e2e/                              # Playwright end-to-end tests
 supabase/

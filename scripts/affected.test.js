@@ -65,7 +65,7 @@ describe('selectSpecs', () => {
   it('runs nothing for files that change nothing about the app', () => {
     const result = selectSpecs([
       'README.md', 'src/components/PostCard.test.jsx', 'src/test/supabaseMock.js', '.gitignore',
-      'scripts/verify.mjs', 'scripts/affected.js', 'eslint.config.js',
+      'scripts/verify.mjs', 'scripts/affected.js', 'eslint.config.js', '.env.example', '.env.localdb.example',
     ]);
 
     expect(result.specs).toEqual([]);

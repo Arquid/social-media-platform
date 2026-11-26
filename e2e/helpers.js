@@ -12,11 +12,15 @@ export function newUser(prefix = 'u') {
   };
 }
 
+// The box of the sign up form: "I agree to the Terms of Use and the Privacy Policy"
+export const agreement = (page) => page.getByRole('checkbox', { name: /I agree to the Terms of Use/ });
+
 export async function signUp(page, user) {
   await page.goto('/register');
   await page.getByLabel('Username').fill(user.username);
   await page.getByLabel('Email').fill(user.email);
   await page.getByLabel('Password').fill(user.password);
+  await agreement(page).check();
   await page.getByRole('button', { name: 'Sign up' }).click();
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 }

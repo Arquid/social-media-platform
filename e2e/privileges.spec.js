@@ -14,6 +14,7 @@ const EXPECTED = {
   admins: [], // nobody through the API: the functions of the administrator look at it
   blocks: ['DELETE', 'INSERT', 'SELECT'],
   comments: ['DELETE', 'INSERT', 'SELECT'],
+  consents: [], // the record of the accepted terms: closed to the API, the person gets their rows in the export
   follows: ['DELETE', 'INSERT', 'SELECT'],
   likes: ['DELETE', 'INSERT', 'SELECT'],
   notifications: ['SELECT'], // plus UPDATE of the column "read" only (checked below)
@@ -128,7 +129,7 @@ test.describe('privileges of the database roles', () => {
       `);
 
     expect(executable('authenticated')).toEqual([
-      'admin_list_reports', 'admin_open_report_count', 'admin_resolve_report', 'delete_my_account', 'is_admin', 'search_profiles',
+      'admin_list_reports', 'admin_open_report_count', 'admin_resolve_report', 'delete_my_account', 'export_my_data', 'is_admin', 'search_profiles',
     ]);
     expect(executable('anon')).toEqual([]);
     expect(executable('public')).toEqual([]);

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { Paper, Typography, TextField, Button, Alert, Stack, Link } from '@mui/material';
+import { Paper, Typography, TextField, Button, Alert, Stack, Link, Checkbox, FormControlLabel } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { LEGAL_VERSION } from '../lib/legal';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
@@ -24,6 +25,7 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -36,13 +38,18 @@ export default function Register() {
     setError('');
 
     if (getUsernameError(normalizedUsername)) return;
+    if (!accepted) {
+      setError('You need to accept the Terms of Use and the Privacy Policy to create an account.');
+      return;
+    }
 
     setSubmitting(true);
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username: normalizedUsername }, emailRedirectTo: window.location.origin },
+      // The version of the texts that were accepted is written down by the database
+      options: { data: { username: normalizedUsername, accepted_legal_version: LEGAL_VERSION }, emailRedirectTo: window.location.origin },
     });
 
     setSubmitting(false);
@@ -87,6 +94,18 @@ export default function Register() {
             required
             autoComplete="new-password"
             slotProps={{ htmlInput: { minLength: 6 } }}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={accepted} onChange={(e) => setAccepted(e.target.checked)} required />}
+            label={(
+              <>
+                I agree to the{' '}
+                <Link component={RouterLink} to="/terms" target="_blank" rel="noopener noreferrer" underline="always">Terms of Use</Link>
+                {' '}and the{' '}
+                <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener noreferrer" underline="always">Privacy Policy</Link>
+                {' '}(they open in a new tab)
+              </>
+            )}
           />
           <Button type="submit" variant="contained" disabled={submitting}>Sign up</Button>
           <Typography variant="body2">

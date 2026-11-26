@@ -264,6 +264,19 @@ describe('Profile page', () => {
     });
   });
 
+  it('offers "Download my data" on your own profile only', async () => {
+    mockProfile({ ...baseProfile, id: TEST_USER.id });
+    const { unmount } = renderProfile();
+    expect(await screen.findByRole('button', { name: 'Download my data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete account' })).toBeInTheDocument();
+    unmount();
+
+    mockProfile(baseProfile);
+    renderProfile();
+    await screen.findByRole('heading', { level: 1, name: 'Alice Smith' });
+    expect(screen.queryByRole('button', { name: 'Download my data' })).not.toBeInTheDocument();
+  });
+
   it('shows "User not found." for an unknown username', async () => {
     supabase.from.mockReturnValueOnce(createQuery({ data: null, error: null }));
     renderProfile('nobody');

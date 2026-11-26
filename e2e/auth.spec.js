@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { newUser, signUp, logIn } from './helpers';
+import { newUser, signUp, logIn, agreement } from './helpers';
 
 test.describe('authentication', () => {
   test('a visitor is redirected to the login page', async ({ page }) => {
@@ -19,6 +19,7 @@ test.describe('authentication', () => {
     await page.getByLabel('Username').fill('bad name!');
     await page.getByLabel('Email').fill('validation@example.test');
     await page.getByLabel('Password').fill('secret123');
+    await agreement(page).check(); // so that it is the username that stops the sign up, and nothing else
 
     await expect(page.getByText(/username must be 3-20 characters/i)).toBeVisible();
     await page.getByRole('button', { name: 'Sign up' }).click();
@@ -64,6 +65,7 @@ test.describe('authentication', () => {
     await other.getByLabel('Username').fill(first.username);
     await other.getByLabel('Email').fill(`other_${first.email}`);
     await other.getByLabel('Password').fill('secret123');
+    await agreement(other).check();
     await other.getByRole('button', { name: 'Sign up' }).click();
 
     await expect(other.getByText(/username is already taken/i)).toBeVisible();

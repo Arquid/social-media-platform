@@ -11,6 +11,7 @@ import Feed from '../components/Feed';
 import UserAvatar from '../components/UserAvatar';
 import EditProfileDialog from '../components/EditProfileDialog';
 import DeleteAccountDialog from '../components/DeleteAccountDialog';
+import ExportDataButton from '../components/ExportDataButton';
 
 async function fetchProfile(username, userId) {
   const { data: profile } = await supabase
@@ -105,9 +106,10 @@ function ProfileView({ username }) {
           )}
         </Box>
         {isOwnProfile && (
-          <Box sx={{ mt: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
+            <ExportDataButton username={profile.username} />
             <Button color="error" size="small" onClick={() => setDeleting(true)}>Delete account</Button>
-          </Box>
+          </Stack>
         )}
       </Paper>
 
